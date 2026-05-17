@@ -37,7 +37,7 @@ signal/
 ├── shared/python-common/      # Kafka client, logging, modelos compartidos
 ├── scripts/onboarding.py      # Clasificación inicial (ejecutar una vez)
 └── docs/                      # Indexado por QMD (colección: signal)
-    ├── decisions/             # ADRs — YYYY-MM-DD-título.md
+    ├── adr/                   # ADRs — ADR-XXX-título.md
     └── sessions/              # Resúmenes de sesión
 
 ## ADRs pendientes de escribir
@@ -49,6 +49,6 @@ signal/
 
 ## Convenciones
 - Commits en inglés, formato Conventional Commits
-- ADRs en docs/decisions/YYYY-MM-DD-título.md
+- ADRs en docs/adr/ADR-XXX-título.md
 - Sesiones guardadas con /save-session tema
 - Orden de arranque obligatorio: make up → scripts/onboarding.py → servicios
