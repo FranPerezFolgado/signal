@@ -94,11 +94,11 @@ flowchart LR
 
 - [x] Crear repo `signal` en GitHub con estructura de monorepo
 - [x] Escribir `CLAUDE.md` en la raíz con el contexto del sistema
-- [ ] Escribir `infra/docker-compose.yml` con:
+- [x] Escribir `infra/docker-compose.yml` con:
     - Kafka + Zookeeper
     - PostgreSQL
 - [ ] Verificar que Kafka arranca y acepta mensajes con `kafka-console-producer`
-- [ ] Crear schema inicial de PostgreSQL:
+- [x] Crear schema inicial de PostgreSQL:
     - tabla `listening_history`
     - tabla `artists`
     - tabla `artist_recommendations`

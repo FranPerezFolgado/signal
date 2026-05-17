@@ -4,7 +4,7 @@ Sistema de discovery de artistas musicales. Pipeline event-driven que ingesta hi
 
 ## Stack
 - **Lenguaje**: Python 3.12 (todos los servicios del MVP; novelty-detector migra a Go en v2)
-- **Messaging**: Kafka + Zookeeper
+- **Messaging**: Kafka (modo KRaft, sin Zookeeper)
 - **BD**: PostgreSQL
 - **API**: FastAPI + Swagger UI
 - **Infra**: Docker Compose (sin cloud, sin K8s en el MVP)
@@ -30,17 +30,18 @@ TRACKED → FOLLOWING → PUBLISHED / BLACKLISTED
 
 ## Estructura del repo
 signal/
-├── infra/docker-compose.yml   # Kafka + Zookeeper + PostgreSQL
+├── infra/
+│   ├── docker-compose.yml     # Kafka (KRaft) + PostgreSQL
+│   └── postgres/init.sql      # Schema inicial
 ├── services/                  # Un directorio por servicio Python
 ├── shared/python-common/      # Kafka client, logging, modelos compartidos
 ├── scripts/onboarding.py      # Clasificación inicial (ejecutar una vez)
 └── docs/                      # Indexado por QMD (colección: signal)
-    ├── adr/                   # ADRs — YYYY-MM-DD-título.md
+    ├── decisions/             # ADRs — YYYY-MM-DD-título.md
     └── sessions/              # Resúmenes de sesión
 
 ## ADRs pendientes de escribir
-001 Kafka vs colas simples · 002 PostgreSQL vs NoSQL · 003 Python MVP / Go v2
-004 Fallback de enriquecimiento · 005 Artista como objeto principal · 006 Clasificación inicial
+003 Python MVP / Go v2 · 004 Fallback de enriquecimiento · 005 Artista como objeto principal · 006 Clasificación inicial
 
 ## Arranque de sesión
 1. /recall — carga contexto previo desde QMD
@@ -50,4 +51,4 @@ signal/
 - Commits en inglés, formato Conventional Commits
 - ADRs en docs/decisions/YYYY-MM-DD-título.md
 - Sesiones guardadas con /save-session tema
-- Orden de arranque obligatorio: docker compose up → scripts/onboarding.py → servicios
+- Orden de arranque obligatorio: make up → scripts/onboarding.py → servicios
