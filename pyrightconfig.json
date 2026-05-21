@@ -1,0 +1,12 @@
+{
+    "venvPath": ".",
+    "venv": ".venv",
+    "executionEnvironments": [
+        {
+            "root": "shared/python-common"
+        },
+        {
+            "root": "services/lastfm-ingester"
+        }
+    ]
+}

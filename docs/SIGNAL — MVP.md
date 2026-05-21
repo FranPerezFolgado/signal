@@ -97,7 +97,7 @@ flowchart LR
 - [x] Escribir `infra/docker-compose.yml` con:
     - Kafka + Zookeeper
     - PostgreSQL
-- [ ] Verificar que Kafka arranca y acepta mensajes con `kafka-console-producer`
+- [x] Verificar que Kafka arranca y acepta mensajes con `kafka-console-producer`
 - [x] Crear schema inicial de PostgreSQL:
     - tabla `listening_history`
     - tabla `artists`
