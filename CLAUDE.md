@@ -1,54 +1,63 @@
 # Signal
 
-Sistema de discovery de artistas musicales. Pipeline event-driven que ingesta historial de Last.fm, normaliza con Spotify, detecta artistas nuevos y los puntúa por novedad.
+Musical artist discovery system. Event-driven pipeline that ingests Last.fm listening history, normalises with Spotify, detects new artists, and scores them by novelty.
 
 ## Stack
-- **Lenguaje**: Python 3.12 (todos los servicios del MVP; novelty-detector migra a Go en v2)
-- **Messaging**: Kafka (modo KRaft, sin Zookeeper)
-- **BD**: PostgreSQL
+- **Language**: Python 3.12 (all MVP services; novelty-detector migrates to Go in v2)
+- **Messaging**: Kafka (KRaft mode, no Zookeeper)
+- **DB**: PostgreSQL
 - **API**: FastAPI + Swagger UI
-- **Infra**: Docker Compose (sin cloud, sin K8s en el MVP)
+- **Infra**: Docker Compose (no cloud, no K8s in the MVP)
 
-## Servicios (MVP)
-| Servicio | Descripción |
+## Services (MVP)
+| Service | Description |
 |---|---|
-| `lastfm-ingester` | Polling Last.fm → topic `raw.plays` |
-| `normalizer` | Enriquece con Spotify (géneros, audio features) → `tracks.normalized` |
-| `history-tracker` | Persiste historial en PostgreSQL → `listening.history` |
-| `novelty-detector` | Detecta artistas/géneros nuevos → `tracks.novel` |
-| `scorer` | Score multi-factor (genre novelty + underground + audio distance) → PostgreSQL |
-| `artist-tracker` | Expansión 1-salto via Spotify related-artists → `raw.tracks` |
-| `api` | FastAPI + Swagger UI para gestionar artistas y ver recomendaciones |
+| `lastfm-ingester` | Polls Last.fm → topic `raw.plays` |
+| `normalizer` | Enriches with Spotify (genres, audio features) → `tracks.normalized` |
+| `history-tracker` | Persists history in PostgreSQL → `listening.history` |
+| `novelty-detector` | Detects new artists/genres → `tracks.novel` |
+| `scorer` | Multi-factor score (genre novelty + underground + audio distance) → PostgreSQL |
+| `artist-tracker` | 1-hop expansion via Spotify related-artists → `raw.tracks` |
+| `api` | FastAPI + Swagger UI to manage artists and view recommendations |
 
-## Topics Kafka
+## Kafka Topics
 raw.plays → tracks.normalized → listening.history / tracks.novel → scorer → PostgreSQL
 
-## Estados de artista
+## Artist States
 TRACKED → FOLLOWING → PUBLISHED / BLACKLISTED
 - Onboarding: Spotify follows → FOLLOWING; plays ≥ INITIAL_HIGH_PRIORITY_PLAYS → TRACKED high_priority
-- Auto-promoción: plays ≥ AUTO_FOLLOW_PLAYS → FOLLOWING
+- Auto-promotion: plays ≥ AUTO_FOLLOW_PLAYS → FOLLOWING
 
-## Estructura del repo
+## Repo Structure
 signal/
 ├── infra/
 │   ├── docker-compose.yml     # Kafka (KRaft) + PostgreSQL
-│   └── postgres/init.sql      # Schema inicial
-├── services/                  # Un directorio por servicio Python
-├── shared/python-common/      # Kafka client, logging, modelos compartidos
-├── scripts/onboarding.py      # Clasificación inicial (ejecutar una vez)
-└── docs/                      # Indexado por QMD (colección: signal)
-    ├── adr/                   # ADRs — ADR-XXX-título.md
-    └── sessions/              # Resúmenes de sesión
+│   └── postgres/init.sql      # Initial schema
+├── services/                  # One directory per Python service
+├── shared/python-common/      # Kafka client, logging, shared models
+├── scripts/onboarding.py      # Initial classification (run once)
+└── docs/                      # Indexed by QMD (collection: signal)
+    ├── adr/                   # ADRs — ADR-XXX-title.md
+    └── sessions/              # Session summaries
 
-## ADRs pendientes de escribir
-003 Python MVP / Go v2 · 004 Fallback de enriquecimiento · 005 Artista como objeto principal · 006 Clasificación inicial
+## ADRs pending
+003 Python MVP / Go v2 · 004 Enrichment fallback · 005 Artist as primary entity · 006 Initial classification
 
-## Arranque de sesión
-1. /recall — carga contexto previo desde QMD
-2. Si el codebase no está indexado: index_repository vía codebase-memory-mcp
+## QMD Collection
+Active collection: `signal`
 
-## Convenciones
-- Commits en inglés, formato Conventional Commits
-- ADRs en docs/adr/ADR-XXX-título.md
-- Sesiones guardadas con /save-session tema
-- Orden de arranque obligatorio: make up → scripts/onboarding.py → servicios
+## Session startup
+1. /recall — loads previous context from QMD
+2. If codebase is not indexed: index_repository via codebase-memory-mcp
+
+## Conventions
+- Commits in English, Conventional Commits format
+- ADRs in docs/adr/ADR-XXX-title.md
+- Sessions saved with /save-session topic
+- Mandatory startup order: make up → scripts/onboarding.py → services
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan at
+`specs/001-phase1-completion/plan.md`
+<!-- SPECKIT END -->

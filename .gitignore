@@ -219,3 +219,8 @@ __marimo__/
 
 
 docs/sessions/*
+
+uv.lock
+specs/
+.specify/
+.codegraph/

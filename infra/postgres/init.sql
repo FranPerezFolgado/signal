@@ -40,3 +40,9 @@ CREATE TABLE artist_recommendations (
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
+
+CREATE TABLE ingester_checkpoints (
+  service        TEXT PRIMARY KEY,
+  last_played_at TIMESTAMPTZ NOT NULL,
+  updated_at     TIMESTAMPTZ DEFAULT now()
+);

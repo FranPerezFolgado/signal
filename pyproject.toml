@@ -1,0 +1,30 @@
+[project]
+name = "signal"
+version = "0.1.0"
+description = "Event-driven artist discovery pipeline. Processes listening history from Last.fm and Spotify to surface unknown artists ranked by novelty and relevance. Built with Kafka, FastAPI, and PostgreSQL."
+requires-python = ">=3.12"
+
+[tool.uv.workspace]
+members = [
+    "services/*",
+    "shared/python-common"
+]
+
+[tool.uv]
+managed = true
+dev-dependencies = [
+  "pytest>=8",
+  "pytest-asyncio>=0.23",
+  "pytest-mock>=3.14",
+  "ruff>=0.6",
+  "mypy>=1.11",
+]
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["services", "shared"]

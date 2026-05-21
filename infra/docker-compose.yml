@@ -72,6 +72,30 @@ services:
       timeout: 5s
       retries: 5
 
+  # ─── lastfm-ingester ─────────────────────────────────────────────────────────
+  lastfm-ingester:
+    build:
+      context: ..
+      dockerfile: services/lastfm-ingester/Dockerfile
+    container_name: signal-lastfm-ingester
+    profiles: [services]
+    restart: on-failure
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    env_file: ../.env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://signal:signal@postgres:5432/signal}
+      LASTFM_API_KEY: ${LASTFM_API_KEY}
+      LASTFM_USERNAME: ${LASTFM_USERNAME}
+      LASTFM_POLL_INTERVAL_SECONDS: ${LASTFM_POLL_INTERVAL_SECONDS:-60}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
 volumes:
   kafka-data:
   postgres-data:
