@@ -1,0 +1,22 @@
+[project]
+name = "signal-normalizer"
+version = "0.1.0"
+description = "Normalizer service — enriches raw plays with Spotify metadata and emits to tracks.normalized"
+requires-python = ">=3.12"
+dependencies = [
+    "signal-common",
+    "requests>=2.31",
+]
+
+[project.scripts]
+signal-normalizer = "signal_normalizer.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/signal_normalizer"]
+
+[tool.uv.sources]
+signal-common = { workspace = true }

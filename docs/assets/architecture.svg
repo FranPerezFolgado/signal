@@ -1,0 +1,192 @@
+<svg width="100%" viewBox="0 0 680 980" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Signal data flow diagram v2</title>
+  <desc>Flujo completo de Signal: ingesters producen a Kafka, servicios consumen y persisten en PostgreSQL, la API lee de PostgreSQL.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: sans-serif; }
+    </style>
+  </defs>
+
+  <!-- background -->
+  <rect width="680" height="980" fill="#ffffff"/>
+
+  <!-- LEGEND -->
+  <rect x="40" y="12" width="12" height="12" rx="2" fill="#0F6E56"/>
+  <text x="58" y="22" font-size="11" fill="#888780">Servicio</text>
+  <rect x="130" y="12" width="12" height="12" rx="2" fill="#534AB7"/>
+  <text x="148" y="22" font-size="11" fill="#888780">Topic Kafka</text>
+  <rect x="240" y="12" width="12" height="12" rx="2" fill="#185FA5"/>
+  <text x="258" y="22" font-size="11" fill="#888780">Base de datos</text>
+  <line x1="355" y1="18" x2="385" y2="18" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text x="391" y="22" font-size="11" fill="#888780">flujo secundario</text>
+
+  <!-- section label -->
+  <text x="340" y="50" text-anchor="middle" font-size="11" fill="#888780">ingesta pasiva + descubrimiento activo</text>
+
+  <!-- ROW 1: INGESTERS -->
+  <rect x="20"  y="58" width="128" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="84"  y="76" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">lastfm-ingester</text>
+  <text x="84"  y="92" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · scrobbles</text>
+
+  <rect x="160" y="58" width="128" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="224" y="76" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">spotify-ingester</text>
+  <text x="224" y="92" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · metadata</text>
+
+  <rect x="300" y="58" width="148" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="374" y="76" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">soundcloud-ingester</text>
+  <text x="374" y="92" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · metadata</text>
+
+  <rect x="460" y="58" width="200" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="560" y="76" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">artist-tracker</text>
+  <text x="560" y="92" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · expansión grafo</text>
+
+  <!-- ingesters → raw topics -->
+  <line x1="84"  y1="102" x2="100" y2="152" fill="none" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="224" y1="102" x2="280" y2="152" fill="none" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="374" y1="102" x2="330" y2="152" fill="none" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="520" y1="102" x2="440" y2="152" fill="none" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ROW 2: RAW TOPICS -->
+  <rect x="20"  y="156" width="140" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="90"  y="174" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">raw.plays</text>
+  <text x="90"  y="190" text-anchor="middle" font-size="11" fill="#AFA9EC">scrobbles crudos</text>
+
+  <rect x="174" y="156" width="200" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="274" y="174" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">raw.tracks</text>
+  <text x="274" y="190" text-anchor="middle" font-size="11" fill="#AFA9EC">metadata cruda</text>
+
+  <rect x="390" y="156" width="250" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="515" y="174" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">artist.discovered</text>
+  <text x="515" y="190" text-anchor="middle" font-size="11" fill="#AFA9EC">artista nuevo detectado</text>
+
+  <!-- artist.discovered → artist-tracker feedback -->
+  <path d="M560 200 L560 230 L580 230 L580 102 L560 102" fill="none" stroke="#534AB7" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- raw topics → normalizer -->
+  <line x1="90"  y1="200" x2="210" y2="252" fill="none" stroke="#534AB7" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="274" y1="200" x2="260" y2="252" fill="none" stroke="#534AB7" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ROW 3: NORMALIZER -->
+  <rect x="150" y="256" width="220" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="260" y="274" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">normalizer</text>
+  <text x="260" y="290" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · schema unificado</text>
+
+  <!-- normalizer → artist.discovered if new -->
+  <path d="M370 278 L420 278 L420 185 L390 185" fill="none" stroke="#0F6E56" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text x="400" y="270" font-size="10" fill="#888780">si nuevo</text>
+
+  <!-- normalizer → tracks.normalized -->
+  <line x1="260" y1="300" x2="260" y2="336" fill="none" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ROW 4: tracks.normalized -->
+  <rect x="110" y="340" width="300" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="260" y="358" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">tracks.normalized</text>
+  <text x="260" y="374" text-anchor="middle" font-size="11" fill="#AFA9EC">schema canónico unificado</text>
+
+  <!-- tracks.normalized → history-tracker, novelty-detector, stats-collector -->
+  <path d="M145 384 L145 420 L100 420 L100 456" fill="none" stroke="#534AB7" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="260" y1="384" x2="260" y2="456" fill="none" stroke="#534AB7" stroke-width="1" marker-end="url(#arrow)"/>
+  <path d="M375 384 L375 420 L490 420 L490 456" fill="none" stroke="#534AB7" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- ROW 5: history-tracker | novelty-detector | stats-collector -->
+  <rect x="20"  y="460" width="155" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="97"  y="478" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">history-tracker</text>
+  <text x="97"  y="494" text-anchor="middle" font-size="11" fill="#9FE1CB">Python</text>
+
+  <rect x="185" y="460" width="160" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="265" y="478" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">novelty-detector</text>
+  <text x="265" y="494" text-anchor="middle" font-size="11" fill="#9FE1CB">Go</text>
+
+  <rect x="420" y="460" width="155" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="497" y="478" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">stats-collector</text>
+  <text x="497" y="494" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · solo lectura</text>
+
+  <!-- history-tracker → listening.history topic -->
+  <line x1="97" y1="504" x2="97" y2="540" fill="none" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)"/>
+  <!-- novelty-detector → tracks.novel -->
+  <line x1="265" y1="504" x2="265" y2="600" fill="none" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)"/>
+  <!-- stats-collector → PostgreSQL -->
+  <path d="M575 482 L625 482 L625 616" fill="none" stroke="#0F6E56" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- history-tracker → PostgreSQL.listening_history -->
+  <path d="M175 472 L625 472" fill="none" stroke="#0F6E56" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text x="390" y="466" font-size="10" fill="#888780" text-anchor="middle">persiste</text>
+
+  <!-- ROW 6: listening.history topic -->
+  <rect x="20" y="544" width="165" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="102" y="562" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">listening.history</text>
+  <text x="102" y="578" text-anchor="middle" font-size="11" fill="#AFA9EC">estado acumulado</text>
+
+  <!-- listening.history → novelty-detector feedback -->
+  <path d="M185 566 L210 566 L210 482 L185 482" fill="none" stroke="#534AB7" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- ROW 7: tracks.novel -->
+  <rect x="115" y="604" width="300" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="265" y="622" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">tracks.novel</text>
+  <text x="265" y="638" text-anchor="middle" font-size="11" fill="#AFA9EC">tracks con novelty_signals</text>
+
+  <!-- tracks.novel → scorer -->
+  <line x1="265" y1="648" x2="265" y2="688" fill="none" stroke="#534AB7" stroke-width="1" marker-end="url(#arrow)"/>
+  <!-- tracks.novel → stats (dashed) -->
+  <path d="M415 626 L460 626 L460 482 L420 482" fill="none" stroke="#534AB7" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- ROW 8: scorer -->
+  <rect x="155" y="692" width="220" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="265" y="710" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">scorer</text>
+  <text x="265" y="726" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · score compuesto</text>
+
+  <!-- scorer → recommendations topic -->
+  <line x1="265" y1="736" x2="265" y2="780" fill="none" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)"/>
+  <!-- scorer → PostgreSQL.recommendations -->
+  <path d="M375 714 L625 714 L625 700" fill="none" stroke="#0F6E56" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text x="500" y="708" font-size="10" fill="#888780" text-anchor="middle">persiste</text>
+
+  <!-- ROW 9: recommendations topic -->
+  <rect x="95" y="784" width="340" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="265" y="802" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">recommendations</text>
+  <text x="265" y="818" text-anchor="middle" font-size="11" fill="#AFA9EC">topic (transporte entre servicios)</text>
+
+  <!-- ══════════════════════════════════ -->
+  <!-- POSTGRESQL: single box with tables -->
+  <!-- ══════════════════════════════════ -->
+  <rect x="580" y="580" width="90" height="280" rx="10" fill="#185FA5" stroke="#0C447C" stroke-width="0.5"/>
+  <text x="625" y="602" text-anchor="middle" font-size="13" font-weight="500" fill="#E6F1FB">PostgreSQL</text>
+
+  <rect x="590" y="614" width="70" height="22" rx="4" fill="#0C447C"/>
+  <text x="625" y="629" text-anchor="middle" font-size="10" fill="#B5D4F4">listening_history</text>
+
+  <rect x="590" y="642" width="70" height="22" rx="4" fill="#0C447C"/>
+  <text x="625" y="657" text-anchor="middle" font-size="10" fill="#B5D4F4">artists</text>
+
+  <rect x="590" y="670" width="70" height="22" rx="4" fill="#0C447C"/>
+  <text x="625" y="685" text-anchor="middle" font-size="10" fill="#B5D4F4">recommendations</text>
+
+  <rect x="590" y="698" width="70" height="22" rx="4" fill="#0C447C"/>
+  <text x="625" y="713" text-anchor="middle" font-size="10" fill="#B5D4F4">stats</text>
+
+  <!-- artist-tracker → PostgreSQL.artists -->
+  <path d="M660 102 L660 642 L660 642" fill="none" stroke="#0F6E56" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- ══════════════════════════════════ -->
+  <!-- ROW 10: API reads PostgreSQL -->
+  <!-- ══════════════════════════════════ -->
+  <text x="300" y="862" text-anchor="middle" font-size="11" fill="#888780">la API lee de PostgreSQL, nunca de Kafka</text>
+
+  <!-- PostgreSQL → api -->
+  <path d="M580 730 L510 730 L510 886 L430 886" fill="none" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="290" y="870" width="140" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="360" y="888" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">api</text>
+  <text x="360" y="904" text-anchor="middle" font-size="11" fill="#9FE1CB">FastAPI</text>
+
+  <!-- api → dashboard -->
+  <line x1="290" y1="892" x2="230" y2="892" fill="none" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="60" y="870" width="170" height="44" rx="7" fill="#185FA5" stroke="#0C447C" stroke-width="0.5"/>
+  <text x="145" y="888" text-anchor="middle" font-size="13" font-weight="500" fill="#E6F1FB">dashboard</text>
+  <text x="145" y="904" text-anchor="middle" font-size="11" fill="#85B7EB">React + Vite</text>
+
+</svg>

@@ -1,0 +1,31 @@
+{
+  "recenttracks": {
+    "@attr": {
+      "user": "testuser",
+      "page": "1",
+      "perPage": "200",
+      "totalPages": "1",
+      "total": "3"
+    },
+    "track": [
+      {
+        "@attr": { "nowplaying": "true" },
+        "artist": { "#text": "Actress", "mbid": "" },
+        "name": "Ascending",
+        "mbid": ""
+      },
+      {
+        "artist": { "#text": "Actress", "mbid": "some-mbid-123" },
+        "name": "Ascending",
+        "mbid": "some-mbid-123",
+        "date": { "uts": "1737080400", "#text": "17 Jan 2026, 00:00" }
+      },
+      {
+        "artist": { "#text": "Burial", "mbid": "" },
+        "name": "Archangel",
+        "mbid": "",
+        "date": { "uts": "1737080000", "#text": "16 Jan 2026, 23:53" }
+      }
+    ]
+  }
+}
