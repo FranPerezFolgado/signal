@@ -7,3 +7,4 @@ class Settings(CommonSettings):
     spotify_refresh_token: str
     lastfm_api_key: str
     spotify_max_retries: int = 3
+    kafka_consumer_group: str = "normalizer-group"

@@ -1,6 +1,7 @@
 -- Schema inicial del MVP de Signal
+-- All DDL uses IF NOT EXISTS so the script is safe to re-run after partial init.
 
-CREATE TABLE listening_history (
+CREATE TABLE IF NOT EXISTS listening_history (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   signal_id       TEXT NOT NULL UNIQUE,
   artist          TEXT NOT NULL,
@@ -14,10 +15,10 @@ CREATE TABLE listening_history (
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_listening_history_artist ON listening_history(artist);
-CREATE INDEX idx_listening_history_genres ON listening_history USING GIN(genres);
+CREATE INDEX IF NOT EXISTS idx_listening_history_artist ON listening_history(artist);
+CREATE INDEX IF NOT EXISTS idx_listening_history_genres ON listening_history USING GIN(genres);
 
-CREATE TABLE artists (
+CREATE TABLE IF NOT EXISTS artists (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name             TEXT NOT NULL,
   external_ids     JSONB,
@@ -31,7 +32,10 @@ CREATE TABLE artists (
   last_explored_at TIMESTAMPTZ
 );
 
-CREATE TABLE artist_recommendations (
+-- Unique artist identity: normalised name ensures idempotent upserts from normalizer
+CREATE UNIQUE INDEX IF NOT EXISTS idx_artists_name_lower ON artists (LOWER(name));
+
+CREATE TABLE IF NOT EXISTS artist_recommendations (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   artist_id       UUID REFERENCES artists(id),
   score           FLOAT NOT NULL,
@@ -41,7 +45,7 @@ CREATE TABLE artist_recommendations (
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE ingester_checkpoints (
+CREATE TABLE IF NOT EXISTS ingester_checkpoints (
   service        TEXT PRIMARY KEY,
   last_played_at TIMESTAMPTZ NOT NULL,
   updated_at     TIMESTAMPTZ DEFAULT now()

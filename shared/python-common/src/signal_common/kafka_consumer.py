@@ -26,6 +26,14 @@ class KafkaJsonConsumer:
         _log.info("kafka_consumer_subscribed", topics=topics)
 
     def poll(self, timeout: float = 1.0) -> dict[str, Any] | None:
+        """Return the next deserialized JSON message, or None on timeout/EOF.
+
+        Raises KafkaException on unrecoverable broker errors.
+
+        If the message cannot be decoded (malformed JSON/bytes), its offset is
+        committed immediately so it is not re-delivered, then None is returned.
+        Callers can therefore treat None as "nothing to process" in all cases.
+        """
         msg = self._consumer.poll(timeout)
         if msg is None:
             return None
@@ -33,9 +41,27 @@ class KafkaJsonConsumer:
             if msg.error().code() == KafkaError._PARTITION_EOF:
                 return None
             raise KafkaException(msg.error())
-        return json.loads(msg.value().decode())
+        try:
+            return json.loads(msg.value().decode())
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            _log.warning(
+                "kafka_message_decode_error",
+                offset=msg.offset(),
+                partition=msg.partition(),
+                error=str(exc),
+            )
+            # Commit the bad message's offset so it is never re-delivered.
+            # The message is permanently unprocessable — retrying would stall the pipeline.
+            self._consumer.commit(message=msg, asynchronous=False)
+            return None
 
     def commit(self) -> None:
+        """Commit the latest successfully-processed message's offset synchronously.
+
+        Call this only after both the DB write and Kafka emit for a message have
+        succeeded. Committing on poll timeout would risk advancing past a message
+        whose Kafka flush previously failed and was intentionally not committed.
+        """
         self._consumer.commit(asynchronous=False)
 
     def close(self) -> None:

@@ -9,6 +9,7 @@ _log = get_logger(__name__)
 
 _TOKEN_URL = "https://accounts.spotify.com/api/token"
 _API_BASE = "https://api.spotify.com/v1"
+_MAX_RETRY_AFTER_SECONDS = 60
 
 
 @dataclass
@@ -46,8 +47,10 @@ class SpotifyClient:
         self._client_secret = client_secret
         self._refresh_token = refresh_token
         self._max_retries = max_retries
+        # Token fetched lazily on the first API call — no eager failure at startup.
+        # A transient auth hiccup at startup should not prevent the service from
+        # starting in a degraded state (Last.fm fallback still works).
         self._access_token: str = ""
-        self._refresh_access_token()
 
     def _refresh_access_token(self) -> None:
         resp = requests.post(
@@ -57,11 +60,24 @@ class SpotifyClient:
             timeout=10,
         )
         if resp.status_code != 200:
-            raise SpotifyAuthError(f"Token refresh failed: {resp.status_code} {resp.text}")
+            # Do not include resp.text — it may contain OAuth error detail
+            raise SpotifyAuthError(f"Token refresh failed with status {resp.status_code}")
         self._access_token = resp.json()["access_token"]
         _log.info("spotify_token_refreshed")
 
     def _get(self, url: str, params: dict | None = None) -> dict | None:
+        # Lazy token acquisition: fetch token on first API call, not at construction.
+        if not self._access_token:
+            try:
+                self._refresh_access_token()
+            except SpotifyAuthError as exc:
+                _log.error("spotify_token_unavailable", error=str(exc))
+                return None
+
+        # Track whether we've already attempted a token refresh this call so we
+        # refresh at most once per _get() regardless of how many retries occurred.
+        token_refreshed = False
+
         for attempt in range(self._max_retries + 1):
             resp = requests.get(
                 url,
@@ -71,33 +87,50 @@ class SpotifyClient:
             )
             if resp.status_code == 200:
                 return resp.json()
+
             if resp.status_code == 401:
-                if attempt == 0:
+                if not token_refreshed:
                     _log.warning("spotify_401_refreshing_token")
-                    self._refresh_access_token()
+                    try:
+                        self._refresh_access_token()
+                        token_refreshed = True
+                    except SpotifyAuthError as exc:
+                        _log.error("spotify_token_refresh_failed", error=str(exc))
+                        return None
                     continue
-                raise SpotifyAuthError("Spotify returned 401 after token refresh")
+                # Second 401 after a successful refresh — credentials are bad
+                _log.warning("spotify_double_401_giving_up")
+                return None
+
             if resp.status_code == 429:
-                if attempt >= self._max_retries:
+                if attempt == self._max_retries:
                     _log.warning("spotify_rate_limit_exhausted", max_retries=self._max_retries)
                     return None
-                retry_after = int(resp.headers.get("Retry-After", 1))
-                wait = retry_after * (2**attempt) + (attempt * 0.1)
+                try:
+                    retry_after = min(int(resp.headers.get("Retry-After", 1)), _MAX_RETRY_AFTER_SECONDS)
+                except ValueError:
+                    retry_after = 1
+                # Respect the server's Retry-After directive; add only a small exponential jitter.
+                wait = retry_after + (2**attempt * 0.1)
                 _log.warning("spotify_rate_limited", wait_seconds=wait, attempt=attempt + 1)
                 time.sleep(wait)
                 continue
+
             if resp.status_code == 404:
                 return None
+
             if resp.status_code >= 500:
-                if attempt >= self._max_retries:
+                if attempt == self._max_retries:
                     _log.error("spotify_server_error_exhausted", status=resp.status_code)
                     return None
                 wait = 2**attempt
                 _log.warning("spotify_server_error_retrying", status=resp.status_code, wait=wait)
                 time.sleep(wait)
                 continue
+
             _log.warning("spotify_unexpected_status", status=resp.status_code, url=url)
             return None
+
         return None
 
     def search_track(self, artist: str, title: str) -> SpotifyTrack | None:
@@ -109,12 +142,14 @@ class SpotifyClient:
         if not items:
             return None
         item = items[0]
-        track_id = item["id"]
+        track_id = item.get("id")
         track_artists = item.get("artists", [])
-        if not track_artists:
+        if not track_id or not track_artists:
             return None
-        artist_id = track_artists[0]["id"]
-        artist_name = track_artists[0]["name"]
+        artist_id = track_artists[0].get("id")
+        artist_name = track_artists[0].get("name", "")
+        if not artist_id:
+            return None
         popularity = item.get("popularity", 0)
         genres = self._get_artist_genres(artist_id)
         return SpotifyTrack(
