@@ -72,6 +72,47 @@ services:
       timeout: 5s
       retries: 5
 
+  # ─── lastfm-ingester ─────────────────────────────────────────────────────────
+  lastfm-ingester:
+    build:
+      context: ..
+      dockerfile: services/lastfm-ingester/Dockerfile
+    container_name: signal-lastfm-ingester
+    profiles: [services]
+    restart: on-failure
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    env_file: ../.env
+    environment:
+      # Override host values with Docker-internal addresses
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DATABASE_URL: postgresql://signal:signal@postgres:5432/signal
+
+  # ─── normalizer ──────────────────────────────────────────────────────────────
+  normalizer:
+    build:
+      context: ..
+      dockerfile: services/normalizer/Dockerfile
+    container_name: signal-normalizer
+    profiles: [services]
+    restart: on-failure
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    env_file: ../.env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DATABASE_URL: postgresql://signal:signal@postgres:5432/signal
+
 volumes:
   kafka-data:
   postgres-data:

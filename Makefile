@@ -2,7 +2,7 @@
 
 COMPOSE = docker compose -f infra/docker-compose.yml
 
-.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean
+.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs
 
 ## Arranca Kafka + Zookeeper + PostgreSQL (y crea los topics)
 up:
@@ -75,3 +75,39 @@ qmd-reindex:
 ## Muestra estado del índice y del servidor
 qmd-status:
 	@qmd status
+
+# ─── lastfm-ingester ──────────────────────────────────────────────────────────
+# ingester-backfill / ingester-poll: run locally via uv (fast iteration, no Docker)
+# ingester-up / ingester-logs: run via Docker Compose (full-stack integration)
+
+## Carga el historial completo de Last.fm y termina (one-shot, local)
+ingester-backfill:
+	@uv run python -m signal_lastfm_ingester --backfill
+
+## Arranca el polling en primer plano (local, requiere .env exportado)
+ingester-poll:
+	@uv run python -m signal_lastfm_ingester
+
+## Arranca el ingester como contenedor Docker en background
+ingester-up:
+	@$(COMPOSE) --profile services up -d lastfm-ingester
+
+## Muestra los logs del contenedor del ingester (Ctrl+C para salir)
+ingester-logs:
+	@docker logs -f signal-lastfm-ingester
+
+# ─── normalizer ───────────────────────────────────────────────────────────────
+
+.PHONY: normalizer-up normalizer-logs normalizer-down
+
+## Arranca el normalizer como contenedor Docker en background
+normalizer-up:
+	@$(COMPOSE) --profile services up -d normalizer
+
+## Muestra los logs del normalizer (Ctrl+C para salir)
+normalizer-logs:
+	@docker logs -f signal-normalizer
+
+## Para y elimina el contenedor del normalizer
+normalizer-down:
+	@$(COMPOSE) stop normalizer && $(COMPOSE) rm -f normalizer
