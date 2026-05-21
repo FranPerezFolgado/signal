@@ -62,14 +62,19 @@ resp = requests.post(
 )
 
 if resp.status_code != 200:
-    print(f"\nToken exchange failed: {resp.status_code} {resp.text}")
+    # Do not print resp.text — it may echo back OAuth credentials in some error responses
+    print(f"\nToken exchange failed with status {resp.status_code}.")
+    print("Check that your Client ID and Client Secret are correct.")
     raise SystemExit(1)
 
 data = resp.json()
 print("\n" + "=" * 40)
-print("Add these to your .env file:")
+print("WARNING: Run this script only in a private terminal.")
+print("Do not run it in CI or shared sessions — credentials appear in output.")
 print("=" * 40)
+print("Add these to your .env file:")
 print(f"SPOTIFY_CLIENT_ID={client_id}")
-print(f"SPOTIFY_CLIENT_SECRET={client_secret}")
+# Client secret is already known to you — only REFRESH_TOKEN is new
+print(f"SPOTIFY_CLIENT_SECRET=<your secret>")
 print(f"SPOTIFY_REFRESH_TOKEN={data['refresh_token']}")
 print("=" * 40)

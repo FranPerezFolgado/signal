@@ -15,10 +15,6 @@ def normalize_text(s: str) -> str:
     return " ".join(s.lower().translate(_PUNCT_TABLE).split())
 
 
-# Internal alias kept for backward compatibility within this package
-_norm = normalize_text
-
-
 def compute_signal_id(artist: str, title: str) -> str:
     text = f"{normalize_text(artist)} {normalize_text(title)}"
     return hashlib.sha256(text.encode()).hexdigest()
