@@ -35,13 +35,29 @@ class ArtistRepository:
         spotify_id: str | None,
         genres: list[str],
     ) -> None:
+        """Upsert an artist with TRACKED status.
+
+        On conflict (same normalised name already exists):
+        - Updates genres if the incoming list is non-empty (preserves richer data)
+        - Updates external_ids with the Spotify ID only if one was not yet stored
+          (avoids overwriting a confirmed Spotify ID with None from a Last.fm-only play)
+        """
         external_ids = json.dumps({"spotify_id": spotify_id} if spotify_id else {})
         with conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO artists (name, external_ids, status, source, genres, first_seen_at)
                 VALUES (%s, %s::jsonb, 'TRACKED', 'LASTFM', %s, NOW())
-                ON CONFLICT DO NOTHING
+                ON CONFLICT (LOWER(name)) DO UPDATE
+                  SET genres = CASE
+                        WHEN cardinality(EXCLUDED.genres) > 0 THEN EXCLUDED.genres
+                        ELSE artists.genres
+                      END,
+                      external_ids = CASE
+                        WHEN artists.external_ids->>'spotify_id' IS NULL
+                        THEN EXCLUDED.external_ids
+                        ELSE artists.external_ids
+                      END
                 """,
                 (name, external_ids, genres),
             )

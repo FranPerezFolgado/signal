@@ -86,6 +86,28 @@ class TestArtistRepository:
             count = cur.fetchone()[0]
         assert count == 1
 
+    def test_upsert_updates_genres_on_conflict(self, conn, repo):
+        name = _unique("Flying Lotus")
+        repo.upsert_tracked(conn, name, None, [])
+        conn.commit()
+        repo.upsert_tracked(conn, name, None, ["jazz", "hip-hop"])
+        conn.commit()
+        with conn.cursor() as cur:
+            cur.execute("SELECT genres FROM artists WHERE LOWER(name) = %s", (name.lower(),))
+            genres = cur.fetchone()[0]
+        assert set(genres) == {"jazz", "hip-hop"}
+
+    def test_upsert_does_not_overwrite_existing_genres_with_empty(self, conn, repo):
+        name = _unique("Emptiness Test")
+        repo.upsert_tracked(conn, name, None, ["drone"])
+        conn.commit()
+        repo.upsert_tracked(conn, name, None, [])
+        conn.commit()
+        with conn.cursor() as cur:
+            cur.execute("SELECT genres FROM artists WHERE LOWER(name) = %s", (name.lower(),))
+            genres = cur.fetchone()[0]
+        assert genres == ["drone"]
+
     def test_upsert_tracked_spotify_id_stored(self, conn, repo):
         spotify_uri = f"spotify:artist:{uuid.uuid4().hex}"
         name = _unique("Andy Stott")
