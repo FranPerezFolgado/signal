@@ -91,27 +91,41 @@ def run_consumer(settings: Settings) -> None:
     consumer.subscribe([_INPUT_TOPIC])
     _log.info("normalizer_started")
 
-    # Single DB connection for the lifetime of this consumer run.
-    # psycopg.connect() as a context manager commits on clean exit / rolls back on error.
+    # Transaction model: one psycopg connection for the consumer's lifetime.
+    # Each message is its own logical transaction:
+    #   - DB write (upsert) happens first, inside the open transaction
+    #   - Kafka emit (flush) happens second
+    #   - If flush succeeds: conn.commit() then consumer.commit() (at-least-once delivery)
+    #   - If flush fails: conn.rollback(), no consumer.commit() (message retried on restart)
+    # The psycopg context manager issues a final COMMIT/ROLLBACK on exit, which is a no-op
+    # because every successful message already committed and flush failures already rolled back.
     with psycopg.connect(settings.database_url) as conn:
         try:
             while not stop:
                 raw = consumer.poll(timeout=1.0)
                 if raw is None:
-                    # None from poll() means timeout, EOF, or a decode error (already logged).
-                    # Commit the offset so a permanently-bad message is not redelivered.
-                    consumer.commit()
+                    # Genuine timeout, PARTITION_EOF, or decode error (already logged).
+                    # Do NOT commit here — committing on timeout could skip a message whose
+                    # Kafka flush previously timed out and was not committed intentionally.
                     continue
 
                 if not _is_valid(raw):
-                    _log.warning("malformed_message_skipped", keys=list(raw.keys()))
+                    # Deterministically invalid — will always fail; skip permanently.
+                    _log.warning("malformed_message_skipped", keys=list(raw.keys())[:20])
                     consumer.commit()
                     continue
 
                 artist = raw["artist"]
                 title = raw["title"]
 
-                result = enricher.enrich(artist, title)
+                try:
+                    result = enricher.enrich(artist, title)
+                except Exception as exc:
+                    # Transient enrichment failure (network, auth). Do not commit so the
+                    # message is retried after a restart once the external service recovers.
+                    _log.error("enrichment_error", artist=artist, error=str(exc))
+                    continue
+
                 signal_id = compute_signal_id(artist, title)
                 processed_at = datetime.now(tz=UTC).isoformat()
                 enriched = _build_output(raw, signal_id, result, processed_at)

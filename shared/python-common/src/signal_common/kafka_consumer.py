@@ -29,8 +29,10 @@ class KafkaJsonConsumer:
         """Return the next deserialized JSON message, or None on timeout/EOF.
 
         Raises KafkaException on unrecoverable broker errors.
-        Returns None (and logs a warning) if the message is not valid JSON —
-        callers should commit and skip such messages rather than retrying forever.
+
+        If the message cannot be decoded (malformed JSON/bytes), its offset is
+        committed immediately so it is not re-delivered, then None is returned.
+        Callers can therefore treat None as "nothing to process" in all cases.
         """
         msg = self._consumer.poll(timeout)
         if msg is None:
@@ -48,13 +50,17 @@ class KafkaJsonConsumer:
                 partition=msg.partition(),
                 error=str(exc),
             )
+            # Commit the bad message's offset so it is never re-delivered.
+            # The message is permanently unprocessable — retrying would stall the pipeline.
+            self._consumer.commit(message=msg, asynchronous=False)
             return None
 
     def commit(self) -> None:
-        """Commit the latest polled offset synchronously.
+        """Commit the latest successfully-processed message's offset synchronously.
 
-        Only safe when called immediately after a single poll() — commits the
-        most recently returned message's offset, not a specific message token.
+        Call this only after both the DB write and Kafka emit for a message have
+        succeeded. Committing on poll timeout would risk advancing past a message
+        whose Kafka flush previously failed and was intentionally not committed.
         """
         self._consumer.commit(asynchronous=False)
 
