@@ -55,6 +55,12 @@ class TestIsValid:
     def test_empty_dict(self) -> None:
         assert _is_valid({}) is False
 
+    def test_title_too_long(self) -> None:
+        assert _is_valid({"artist": "Artist", "title": "t" * 501}) is False
+
+    def test_title_at_max_length(self) -> None:
+        assert _is_valid({"artist": "Artist", "title": "t" * 500}) is True
+
 
 class TestBuildOutput:
     _RAW = {
@@ -114,3 +120,12 @@ class TestBuildOutput:
     def test_no_played_field(self) -> None:
         out = _build_output(self._RAW, "x", _make_result(), "t")
         assert "played" not in out
+
+    def test_processed_at_passed_through(self) -> None:
+        out = _build_output(self._RAW, "x", _make_result(), "2026-01-15T21:31:00Z")
+        assert out["processed_at"] == "2026-01-15T21:31:00Z"
+
+    def test_sources_custom_value(self) -> None:
+        raw = {"artist": "A", "title": "B", "source": "spotify"}
+        out = _build_output(raw, "x", _make_result(), "t")
+        assert out["sources"] == ["spotify"]
