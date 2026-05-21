@@ -95,3 +95,19 @@ ingester-up:
 ## Muestra los logs del contenedor del ingester (Ctrl+C para salir)
 ingester-logs:
 	@docker logs -f signal-lastfm-ingester
+
+# ─── normalizer ───────────────────────────────────────────────────────────────
+
+.PHONY: normalizer-up normalizer-logs normalizer-down
+
+## Arranca el normalizer como contenedor Docker en background
+normalizer-up:
+	@$(COMPOSE) --profile services up -d normalizer
+
+## Muestra los logs del normalizer (Ctrl+C para salir)
+normalizer-logs:
+	@docker logs -f signal-normalizer
+
+## Para y elimina el contenedor del normalizer
+normalizer-down:
+	@$(COMPOSE) stop normalizer && $(COMPOSE) rm -f normalizer
