@@ -1,6 +1,7 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from signal_normalizer.spotify_client import AudioFeatures, SpotifyClient, SpotifyTrack
+from signal_normalizer.lastfm_client import LastfmFallbackClient
+from signal_normalizer.spotify_client import AudioFeatures, SpotifyClient
 
 
 @dataclass
@@ -14,7 +15,7 @@ class EnrichmentResult:
 
 
 class Enricher:
-    def __init__(self, spotify: SpotifyClient, lastfm: "LastfmFallbackClient") -> None:  # type: ignore[name-defined]
+    def __init__(self, spotify: SpotifyClient, lastfm: LastfmFallbackClient) -> None:
         self._spotify = spotify
         self._lastfm = lastfm
 

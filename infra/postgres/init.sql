@@ -31,6 +31,9 @@ CREATE TABLE artists (
   last_explored_at TIMESTAMPTZ
 );
 
+-- Unique artist identity: normalised name ensures idempotent upserts from normalizer
+CREATE UNIQUE INDEX idx_artists_name_lower ON artists (LOWER(name));
+
 CREATE TABLE artist_recommendations (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   artist_id       UUID REFERENCES artists(id),
