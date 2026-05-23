@@ -37,6 +37,9 @@ class HistoryRepository:
         with conn.cursor() as cur:
             cur.execute(_UPSERT_SQL, params)
             row = cur.fetchone()
+            if row is None:
+                _log.warning("upsert_no_row_returned", signal_id=str(params["signal_id"])[:8])
+                return False
             inserted = bool(row[0])
         _log.debug("upsert", signal_id=str(params["signal_id"])[:8], inserted=inserted)
         return inserted
