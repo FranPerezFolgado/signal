@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -26,57 +26,50 @@ def sample_msg():
     }
 
 
-def test_upsert_returns_true_on_fresh_insert(repo, sample_msg):
+def _make_conn(fetchone_return) -> MagicMock:
     conn = MagicMock()
     cursor = MagicMock()
     cursor.__enter__ = MagicMock(return_value=cursor)
     cursor.__exit__ = MagicMock(return_value=False)
-    cursor.fetchone.return_value = (True,)
+    cursor.fetchone.return_value = fetchone_return
     conn.cursor.return_value = cursor
+    return conn
 
-    result = repo.upsert(conn, sample_msg)
 
-    assert result is True
+def test_upsert_returns_true_on_fresh_insert(repo, sample_msg):
+    conn = _make_conn((True,))
+    assert repo.upsert(conn, sample_msg) is True
 
 
 def test_upsert_returns_false_on_conflict(repo, sample_msg):
-    conn = MagicMock()
-    cursor = MagicMock()
-    cursor.__enter__ = MagicMock(return_value=cursor)
-    cursor.__exit__ = MagicMock(return_value=False)
-    cursor.fetchone.return_value = (False,)
-    conn.cursor.return_value = cursor
+    conn = _make_conn((False,))
+    assert repo.upsert(conn, sample_msg) is False
 
-    result = repo.upsert(conn, sample_msg)
 
-    assert result is False
+def test_upsert_returns_false_when_no_row_returned(repo, sample_msg):
+    conn = _make_conn(None)
+    assert repo.upsert(conn, sample_msg) is False
 
 
 def test_upsert_sql_contains_on_conflict(repo, sample_msg):
-    conn = MagicMock()
-    cursor = MagicMock()
-    cursor.__enter__ = MagicMock(return_value=cursor)
-    cursor.__exit__ = MagicMock(return_value=False)
-    cursor.fetchone.return_value = (True,)
-    conn.cursor.return_value = cursor
-
+    conn = _make_conn((True,))
     repo.upsert(conn, sample_msg)
-
-    executed_sql = cursor.execute.call_args[0][0]
+    executed_sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
     assert "ON CONFLICT (signal_id) DO UPDATE" in executed_sql
 
 
 def test_upsert_binds_all_nine_fields(repo, sample_msg):
-    conn = MagicMock()
-    cursor = MagicMock()
-    cursor.__enter__ = MagicMock(return_value=cursor)
-    cursor.__exit__ = MagicMock(return_value=False)
-    cursor.fetchone.return_value = (True,)
-    conn.cursor.return_value = cursor
-
+    conn = _make_conn((True,))
     repo.upsert(conn, sample_msg)
-
-    params = cursor.execute.call_args[0][1]
+    params = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][1]
     for field in ("signal_id", "artist", "artist_id", "title", "genres",
                   "played_at", "sources", "audio_features", "popularity"):
         assert field in params, f"Missing field: {field}"
+
+
+def test_upsert_handles_null_audio_features(repo, sample_msg):
+    sample_msg["audio_features"] = None
+    conn = _make_conn((True,))
+    repo.upsert(conn, sample_msg)
+    params = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][1]
+    assert params["audio_features"] is None

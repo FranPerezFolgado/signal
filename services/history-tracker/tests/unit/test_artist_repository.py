@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -32,11 +32,11 @@ def test_increment_returns_false_when_artist_not_found(repo):
     assert result is False
 
 
-def test_increment_logs_warn_when_not_found(repo, caplog):
-    import logging
+def test_increment_logs_warn_when_not_found(repo):
     conn = _make_conn(rowcount=0)
-    with caplog.at_level(logging.WARNING):
+    with patch("signal_history_tracker.artist_repository._log") as mock_log:
         repo.increment_play_count(conn, "Ghost Artist")
+    mock_log.warning.assert_called_once_with("artist_not_found", artist="Ghost Artist")
 
 
 def test_increment_sql_uses_case_insensitive_match(repo):

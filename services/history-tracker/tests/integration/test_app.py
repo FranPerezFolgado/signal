@@ -1,20 +1,22 @@
 """Integration tests for history-tracker.
 
 Requires live stack: `make up` (Kafka + PostgreSQL running).
-Run with: uv run pytest tests/history-tracker/integration/ -v
+Run with: uv run pytest services/history-tracker/tests/integration/ -v
 
 These tests produce real Kafka messages and assert on PostgreSQL state.
 """
 import json
+import os
 import time
 import uuid
 
 import psycopg
 import pytest
+from confluent_kafka import Consumer as KConsumer
 from confluent_kafka import Producer
 
-BOOTSTRAP_SERVERS = "localhost:9092"
-DATABASE_URL = "postgresql://signal:signal@localhost:5432/signal"
+BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://signal:signal@localhost:5432/signal")
 INPUT_TOPIC = "tracks.normalized"
 OUTPUT_TOPIC = "listening.history"
 DLQ_TOPIC = "history-tracker.dlq"
@@ -47,6 +49,28 @@ def _get_play_count(conn: psycopg.Connection, artist_name: str) -> int | None:
         cur.execute("SELECT play_count FROM artists WHERE LOWER(name) = LOWER(%s)", (artist_name,))
         row = cur.fetchone()
         return row[0] if row else None
+
+
+def _make_consumer(group_suffix: str) -> KConsumer:
+    return KConsumer({
+        "bootstrap.servers": BOOTSTRAP_SERVERS,
+        "group.id": f"test-{group_suffix}-{uuid.uuid4().hex[:8]}",
+        "auto.offset.reset": "latest",
+        "enable.auto.commit": False,
+    })
+
+
+def _wait_for_kafka_message(
+    consumer: KConsumer, match_fn, timeout: float = 15.0
+) -> dict | None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        m = consumer.poll(1.0)
+        if m and not m.error():
+            payload = json.loads(m.value().decode())
+            if match_fn(payload):
+                return payload
+    return None
 
 
 @pytest.fixture(scope="module")
@@ -108,7 +132,14 @@ def test_idempotency_no_double_insert_or_double_count(db):
 
     before_count = _get_play_count(db, "Radiohead") or 0
     _produce(INPUT_TOPIC, msg, key=signal_id)
-    time.sleep(3.0)
+
+    # Poll until play_count changes (bug) or 8s elapse (expected: no change).
+    # Exits early on failure so the test is fast when the bug manifests.
+    deadline = time.monotonic() + 8.0
+    while time.monotonic() < deadline:
+        if (_get_play_count(db, "Radiohead") or 0) != before_count:
+            break
+        time.sleep(0.3)
 
     with db.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM listening_history WHERE signal_id = %s", (signal_id,))
@@ -121,27 +152,17 @@ def test_idempotency_no_double_insert_or_double_count(db):
 
 @pytest.mark.integration
 def test_null_signal_id_goes_to_dlq(db):
-    from confluent_kafka import Consumer as KConsumer
     msg = {"artist": "Ghost", "title": "Some Track", "signal_id": None}
+
+    c = _make_consumer("dlq-reader")
+    c.subscribe([DLQ_TOPIC])
+    c.poll(0.5)  # trigger partition assignment before produce
+
     _produce(INPUT_TOPIC, msg)
 
-    c = KConsumer({
-        "bootstrap.servers": BOOTSTRAP_SERVERS,
-        "group.id": f"test-dlq-reader-{uuid.uuid4().hex[:8]}",
-        "auto.offset.reset": "latest",
-        "enable.auto.commit": False,
-    })
-    c.subscribe([DLQ_TOPIC])
-
-    deadline = time.monotonic() + 15.0
-    dlq_msg = None
-    while time.monotonic() < deadline:
-        m = c.poll(1.0)
-        if m and not m.error():
-            payload = json.loads(m.value().decode())
-            if payload.get("error_reason") == "NULL_SIGNAL_ID":
-                dlq_msg = payload
-                break
+    dlq_msg = _wait_for_kafka_message(
+        c, lambda p: p.get("error_reason") == "NULL_SIGNAL_ID"
+    )
     c.close()
 
     assert dlq_msg is not None, "No NULL_SIGNAL_ID DLQ message received within 15s"
@@ -165,8 +186,19 @@ def test_pending_enrichment_message_persisted_and_forwarded(db):
         "processed_at": "2026-05-21T12:00:01+00:00",
     }
 
+    c = _make_consumer("output-reader")
+    c.subscribe([OUTPUT_TOPIC])
+    c.poll(0.5)  # trigger partition assignment before produce
+
     _produce(INPUT_TOPIC, msg, key=signal_id)
 
     row = _wait_for_row(db, signal_id)
     assert row is not None, "Pending-enrichment row not persisted within 10s"
     assert row["signal_id"] == signal_id
+
+    forwarded = _wait_for_kafka_message(
+        c, lambda p: p.get("signal_id") == signal_id
+    )
+    c.close()
+
+    assert forwarded is not None, "Message not forwarded to listening.history within 15s"
