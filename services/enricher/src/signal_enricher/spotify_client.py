@@ -1,3 +1,5 @@
+import re
+
 import requests
 
 from signal_common.logger import get_logger
@@ -6,6 +8,9 @@ _log = get_logger(__name__)
 
 _TOKEN_URL = "https://accounts.spotify.com/api/token"
 _API_BASE = "https://api.spotify.com/v1"
+
+# Spotify IDs are base-62 strings, typically 22 chars. Allow 10–30 to be safe.
+_SPOTIFY_ID_RE = re.compile(r"^[A-Za-z0-9]{10,30}$")
 
 
 class SpotifyAuthError(Exception):
@@ -80,13 +85,20 @@ class EnricherSpotifyClient:
         return None
 
     def _strip_uri_prefix(self, uri: str | None, kind: str) -> str | None:
-        """Convert spotify:artist:xxx → xxx (or spotify:track:xxx → xxx)."""
+        """Extract and validate a raw Spotify ID from a URI like spotify:artist:xxx."""
+        if not uri:
+            return None
         prefix = f"spotify:{kind}:"
-        if uri and uri.startswith(prefix):
-            return uri[len(prefix):]
-        return uri
+        if not uri.startswith(prefix):
+            _log.warning("invalid_spotify_uri_format", kind=kind, uri=uri[:40])
+            return None
+        raw_id = uri[len(prefix):]
+        if not _SPOTIFY_ID_RE.match(raw_id):
+            _log.warning("invalid_spotify_id_format", kind=kind, raw_id=raw_id[:40])
+            return None
+        return raw_id
 
-    def get_artist_data(self, artist_id_uri: str) -> dict | None:
+    def get_artist_data(self, artist_id_uri: str | None) -> dict | None:
         """Return genres, popularity, followers for an artist URI."""
         raw_id = self._strip_uri_prefix(artist_id_uri, "artist")
         if not raw_id:
@@ -100,7 +112,7 @@ class EnricherSpotifyClient:
             "followers": data.get("followers", {}).get("total"),
         }
 
-    def get_track_data(self, track_id_uri: str) -> dict | None:
+    def get_track_data(self, track_id_uri: str | None) -> dict | None:
         """Return track popularity and duration for a track URI."""
         raw_id = self._strip_uri_prefix(track_id_uri, "track")
         if not raw_id:

@@ -25,7 +25,7 @@ class TestGetArtistData:
             "followers": {"total": 12345},
         }
         with patch("requests.get", return_value=mock_resp):
-            result = client.get_artist_data("spotify:artist:abc123")
+            result = client.get_artist_data("spotify:artist:abc1234567890ABCDE")
 
         assert result["genres"] == ["electronic", "ambient"]
         assert result["artist_popularity"] == 42
@@ -37,10 +37,10 @@ class TestGetArtistData:
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"genres": [], "popularity": 0, "followers": {"total": 0}}
         with patch("requests.get", return_value=mock_resp) as mock_get:
-            client.get_artist_data("spotify:artist:abc123")
+            client.get_artist_data("spotify:artist:abc1234567890ABCDE")
 
         called_url = mock_get.call_args[0][0]
-        assert "abc123" in called_url
+        assert "abc1234567890ABCDE" in called_url
         assert "spotify:artist:" not in called_url
 
     def test_returns_none_on_failure(self, client):
@@ -48,7 +48,7 @@ class TestGetArtistData:
         mock_resp = MagicMock()
         mock_resp.status_code = 500
         with patch("requests.get", return_value=mock_resp):
-            result = client.get_artist_data("spotify:artist:abc123")
+            result = client.get_artist_data("spotify:artist:abc1234567890ABCDE")
 
         assert result is None
 
@@ -63,7 +63,7 @@ class TestGetTrackData:
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"popularity": 55, "duration_ms": 300000}
         with patch("requests.get", return_value=mock_resp):
-            result = client.get_track_data("spotify:track:t1")
+            result = client.get_track_data("spotify:track:track1234567890ABCDE")
 
         assert result["track_popularity"] == 55
         assert result["duration_ms"] == 300000
@@ -72,6 +72,34 @@ class TestGetTrackData:
         import requests as req
         _mock_token(client)
         with patch("requests.get", side_effect=req.Timeout):
-            result = client.get_track_data("spotify:track:t1")
+            result = client.get_track_data("spotify:track:track1234567890ABCDE")
+
+        assert result is None
+
+
+class TestStripUriPrefix:
+    def test_rejects_missing_prefix(self, client):
+        assert client._strip_uri_prefix("abc123456789012345678901", "artist") is None
+
+    def test_rejects_wrong_kind(self, client):
+        assert client._strip_uri_prefix("spotify:track:abc123456789012345678901", "artist") is None
+
+    def test_rejects_id_too_short(self, client):
+        assert client._strip_uri_prefix("spotify:artist:short", "artist") is None
+
+    def test_rejects_id_with_path_traversal(self, client):
+        assert client._strip_uri_prefix("spotify:artist:../etc/passwd/AAAAAA", "artist") is None
+
+    def test_accepts_valid_uri(self, client):
+        raw = client._strip_uri_prefix("spotify:artist:abc1234567890ABCDE", "artist")
+        assert raw == "abc1234567890ABCDE"
+
+
+class TestGetArtistDataTimeout:
+    def test_returns_none_on_timeout(self, client):
+        import requests as req
+        _mock_token(client)
+        with patch("requests.get", side_effect=req.Timeout):
+            result = client.get_artist_data("spotify:artist:abc1234567890ABCDE")
 
         assert result is None
