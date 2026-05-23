@@ -1,15 +1,10 @@
 import signal
 from datetime import UTC, datetime
 
-import psycopg
-
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
 
-from signal_normalizer.artist_repository import ArtistRepository
-from signal_normalizer.enricher import Enricher
-from signal_normalizer.lastfm_client import LastfmFallbackClient
 from signal_normalizer.settings import Settings
 from signal_normalizer.signal_id import compute_signal_id
 from signal_normalizer.spotify_client import SpotifyClient
@@ -34,28 +29,17 @@ def _is_valid(msg: dict) -> bool:
     )
 
 
-def _build_output(raw: dict, signal_id: str, result, processed_at: str) -> dict:
-    audio = None
-    if result.audio_features is not None:
-        audio = {
-            "energy": result.audio_features.energy,
-            "valence": result.audio_features.valence,
-            "tempo": result.audio_features.tempo,
-            "danceability": result.audio_features.danceability,
-            "acousticness": result.audio_features.acousticness,
-            "instrumentalness": result.audio_features.instrumentalness,
-        }
+def _build_output(raw: dict, signal_id: str, artist_id: str | None, track_id: str | None, processed_at: str) -> dict:
+    source = raw.get("source", "lastfm")
     return {
         "signal_id": signal_id,
         "artist": raw["artist"],
-        "artist_id": result.artist_id,
+        "artist_id": artist_id,
+        "track_id": track_id,
         "title": raw["title"],
-        "genres": result.genres,
-        "sources": [raw.get("source", "lastfm")],
+        "sources": [source],
+        "played": source == "lastfm",
         "played_at": raw.get("played_at"),
-        "audio_features": audio,
-        "popularity": result.popularity,
-        "pending_enrichment": result.pending_enrichment,
         "processed_at": processed_at,
     }
 
@@ -65,10 +49,8 @@ def run_consumer(settings: Settings) -> None:
         settings.spotify_client_id,
         settings.spotify_client_secret,
         settings.spotify_refresh_token,
-        settings.spotify_max_retries,
+        settings.spotify_timeout,
     )
-    lastfm = LastfmFallbackClient(settings.lastfm_api_key)
-    enricher = Enricher(spotify, lastfm)
 
     consumer = KafkaJsonConsumer(
         settings.kafka_bootstrap_servers,
@@ -76,7 +58,6 @@ def run_consumer(settings: Settings) -> None:
         _CLIENT_ID,
     )
     producer = KafkaJsonProducer(settings.kafka_bootstrap_servers, client_id=_CLIENT_ID)
-    repo = ArtistRepository()
 
     stop = False
 
@@ -91,74 +72,36 @@ def run_consumer(settings: Settings) -> None:
     consumer.subscribe([_INPUT_TOPIC])
     _log.info("normalizer_started")
 
-    # Transaction model: one psycopg connection for the consumer's lifetime.
-    # Each message is its own logical transaction:
-    #   - DB write (upsert) happens first, inside the open transaction
-    #   - Kafka emit (flush) happens second
-    #   - If flush succeeds: conn.commit() then consumer.commit() (at-least-once delivery)
-    #   - If flush fails: conn.rollback(), no consumer.commit() (message retried on restart)
-    # The psycopg context manager issues a final COMMIT/ROLLBACK on exit, which is a no-op
-    # because every successful message already committed and flush failures already rolled back.
-    with psycopg.connect(settings.database_url) as conn:
-        try:
-            while not stop:
-                raw = consumer.poll(timeout=1.0)
-                if raw is None:
-                    # Genuine timeout, PARTITION_EOF, or decode error (already logged).
-                    # Do NOT commit here — committing on timeout could skip a message whose
-                    # Kafka flush previously timed out and was not committed intentionally.
-                    continue
+    try:
+        while not stop:
+            raw = consumer.poll(timeout=1.0)
+            if raw is None:
+                continue
 
-                if not _is_valid(raw):
-                    # Deterministically invalid — will always fail; skip permanently.
-                    _log.warning("malformed_message_skipped", keys=list(raw.keys())[:20])
-                    consumer.commit()
-                    continue
-
-                artist = raw["artist"]
-                title = raw["title"]
-
-                try:
-                    result = enricher.enrich(artist, title)
-                except Exception as exc:
-                    # Transient enrichment failure (network, auth). Do not commit so the
-                    # message is retried after a restart once the external service recovers.
-                    _log.error("enrichment_error", artist=artist, error=str(exc))
-                    continue
-
-                signal_id = compute_signal_id(artist, title)
-                processed_at = datetime.now(tz=UTC).isoformat()
-                enriched = _build_output(raw, signal_id, result, processed_at)
-
-                # DB write — part of the open transaction
-                repo.upsert_tracked(conn, artist, result.artist_id, result.genres)
-
-                # Kafka emit — must succeed before we commit the DB or the offset
-                producer.produce(_OUTPUT_TOPIC, enriched, key=signal_id)
-                unflushed = producer.flush(timeout=10.0)
-                if unflushed > 0:
-                    # Emit timed out: roll back DB write, do not commit Kafka offset.
-                    # Message will be redelivered and reprocessed on restart.
-                    conn.rollback()
-                    _log.error(
-                        "kafka_flush_timeout_rolling_back",
-                        unflushed=unflushed,
-                        signal_id=signal_id[:8],
-                    )
-                    continue
-
-                # Both side effects succeeded — commit DB then advance Kafka offset
-                conn.commit()
+            if not _is_valid(raw):
+                _log.warning("malformed_message_skipped", keys=list(raw.keys())[:20])
                 consumer.commit()
+                continue
 
-                _log.info(
-                    "processed",
-                    signal_id=signal_id[:8],
-                    artist=artist,
-                    source=result.enrichment_source,
-                    pending=result.pending_enrichment,
-                )
-        finally:
-            consumer.close()
+            artist = raw["artist"]
+            title = raw["title"]
+            signal_id = compute_signal_id(artist, title)
+
+            # Resolve Spotify IDs — 2s timeout, 0 retries. Failure is not fatal.
+            artist_id, track_id = spotify.search_track(artist, title)
+
+            processed_at = datetime.now(tz=UTC).isoformat()
+            normalized = _build_output(raw, signal_id, artist_id, track_id, processed_at)
+
+            producer.produce(_OUTPUT_TOPIC, normalized, key=signal_id)
+            unflushed = producer.flush(timeout=10.0)
+            if unflushed > 0:
+                _log.error("kafka_flush_timeout", unflushed=unflushed, signal_id=signal_id[:8])
+                continue
+
+            consumer.commit()
+            _log.info("processed", signal_id=signal_id[:8], artist=artist, spotify_resolved=artist_id is not None)
+    finally:
+        consumer.close()
 
     _log.info("normalizer_stopped")
