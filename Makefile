@@ -111,3 +111,31 @@ normalizer-logs:
 ## Para y elimina el contenedor del normalizer
 normalizer-down:
 	@$(COMPOSE) stop normalizer && $(COMPOSE) rm -f normalizer
+
+# ─── history-tracker ──────────────────────────────────────────────────────────
+
+.PHONY: history-tracker-up history-tracker-logs history-tracker-down
+
+## Arranca el history-tracker como contenedor Docker en background
+history-tracker-up:
+	@$(COMPOSE) --profile services up -d history-tracker
+
+## Muestra los logs del history-tracker (Ctrl+C para salir)
+history-tracker-logs:
+	@docker logs -f signal-history-tracker
+
+## Para y elimina el contenedor del history-tracker
+history-tracker-down:
+	@$(COMPOSE) stop history-tracker && $(COMPOSE) rm -f history-tracker
+
+# ─── kafka-ui ─────────────────────────────────────────────────────────────────
+
+.PHONY: kafka-ui-up kafka-ui-down
+
+## Arranca kafka-ui en http://localhost:8080 (perfil tools)
+kafka-ui-up:
+	@$(COMPOSE) --profile tools up -d kafka-ui
+
+## Para y elimina el contenedor de kafka-ui
+kafka-ui-down:
+	@$(COMPOSE) stop kafka-ui && $(COMPOSE) rm -f kafka-ui
