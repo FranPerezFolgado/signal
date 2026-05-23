@@ -47,6 +47,7 @@ services:
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic tracks.normalized  --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic listening.history  --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic tracks.novel       --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic history-tracker.dlq --partitions 3 --replication-factor 1
       echo 'Topics creados:'
       kafka-topics --bootstrap-server kafka:29092 --list
       "
@@ -108,6 +109,37 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+    env_file: ../.env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DATABASE_URL: postgresql://signal:signal@postgres:5432/signal
+
+  # ─── kafka-ui ────────────────────────────────────────────────────────────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: signal-kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: signal
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # ─── history-tracker ─────────────────────────────────────────────────────────
+  history-tracker:
+    build:
+      context: ..
+      dockerfile: services/history-tracker/Dockerfile
+    container_name: signal-history-tracker
+    profiles: [services]
+    restart: unless-stopped
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     env_file: ../.env
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092

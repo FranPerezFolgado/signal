@@ -111,3 +111,19 @@ normalizer-logs:
 ## Para y elimina el contenedor del normalizer
 normalizer-down:
 	@$(COMPOSE) stop normalizer && $(COMPOSE) rm -f normalizer
+
+# ─── history-tracker ──────────────────────────────────────────────────────────
+
+.PHONY: history-tracker-up history-tracker-logs history-tracker-down
+
+## Arranca el history-tracker como contenedor Docker en background
+history-tracker-up:
+	@$(COMPOSE) --profile services up -d history-tracker
+
+## Muestra los logs del history-tracker (Ctrl+C para salir)
+history-tracker-logs:
+	@docker logs -f signal-history-tracker
+
+## Para y elimina el contenedor del history-tracker
+history-tracker-down:
+	@$(COMPOSE) stop history-tracker && $(COMPOSE) rm -f history-tracker
