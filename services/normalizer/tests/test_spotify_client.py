@@ -2,281 +2,100 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from signal_normalizer.spotify_client import (
-    AudioFeatures,
-    SpotifyAuthError,
-    SpotifyClient,
-    SpotifyTrack,
-)
+from signal_normalizer.spotify_client import SpotifyAuthError, SpotifyClient
 
 
-def _make_client(max_retries: int = 3, token: str = "token") -> SpotifyClient:
-    """Build a SpotifyClient bypassing __init__ — token defaults to pre-populated."""
-    client = SpotifyClient.__new__(SpotifyClient)
-    client._client_id = "id"
-    client._client_secret = "secret"
-    client._refresh_token = "refresh"
-    client._max_retries = max_retries
-    client._access_token = token
-    return client
+@pytest.fixture
+def client():
+    return SpotifyClient("client_id", "client_secret", "refresh_token", timeout=2.0)
 
 
-def _mock_response(status: int, json_data: dict | None = None, headers: dict | None = None):
-    resp = MagicMock()
-    resp.status_code = status
-    resp.json.return_value = json_data or {}
-    resp.headers = headers or {}
-    return resp
-
-
-class TestLazyTokenInit:
-    def test_no_token_fetches_on_first_get(self) -> None:
-        client = _make_client(token="")
-        with patch("signal_normalizer.spotify_client.requests.post") as mock_post:
-            mock_post.return_value = _mock_response(200, {"access_token": "lazy_token"})
-            with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-                mock_get.return_value = _mock_response(200, {"ok": True})
-                result = client._get("https://api.spotify.com/v1/test")
-        mock_post.assert_called_once()
-        assert result == {"ok": True}
-
-    def test_no_token_auth_failure_returns_none(self) -> None:
-        client = _make_client(token="")
-        with patch("signal_normalizer.spotify_client.requests.post") as mock_post:
-            mock_post.return_value = _mock_response(500)
-            result = client._get("https://api.spotify.com/v1/test")
-        assert result is None
-
-    def test_with_token_skips_refresh(self) -> None:
-        client = _make_client(token="existing")
-        with patch("signal_normalizer.spotify_client.requests.post") as mock_post:
-            with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-                mock_get.return_value = _mock_response(200, {"ok": True})
-                client._get("https://api.spotify.com/v1/test")
-        mock_post.assert_not_called()
-
-
-class TestRefreshAccessToken:
-    def test_success(self) -> None:
-        client = _make_client()
-        with patch("signal_normalizer.spotify_client.requests.post") as mock_post:
-            mock_post.return_value = _mock_response(200, {"access_token": "new_token"})
-            client._refresh_access_token()
-        assert client._access_token == "new_token"
-
-    def test_failure_raises_auth_error(self) -> None:
-        client = _make_client()
-        with patch("signal_normalizer.spotify_client.requests.post") as mock_post:
-            mock_post.return_value = _mock_response(401)
-            with pytest.raises(SpotifyAuthError) as exc_info:
-                client._refresh_access_token()
-        assert "401" in str(exc_info.value)
-        assert "secret" not in str(exc_info.value)
-
-
-class TestGet:
-    def test_200_returns_json(self) -> None:
-        client = _make_client()
-        payload = {"foo": "bar"}
-        with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-            mock_get.return_value = _mock_response(200, payload)
-            result = client._get("https://api.spotify.com/v1/test")
-        assert result == payload
-
-    def test_404_returns_none(self) -> None:
-        client = _make_client()
-        with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-            mock_get.return_value = _mock_response(404)
-            result = client._get("https://api.spotify.com/v1/test")
-        assert result is None
-
-    def test_429_retries_then_gives_up(self) -> None:
-        client = _make_client(max_retries=2)
-        with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-            with patch("signal_normalizer.spotify_client.time.sleep"):
-                mock_get.return_value = _mock_response(429, headers={"Retry-After": "1"})
-                result = client._get("https://api.spotify.com/v1/test")
-        assert result is None
-        assert mock_get.call_count == 3  # initial + 2 retries
-
-    def test_429_succeeds_after_retry(self) -> None:
-        client = _make_client(max_retries=2)
-        with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-            with patch("signal_normalizer.spotify_client.time.sleep"):
-                mock_get.side_effect = [
-                    _mock_response(429, headers={"Retry-After": "1"}),
-                    _mock_response(200, {"ok": True}),
-                ]
-                result = client._get("https://api.spotify.com/v1/test")
-        assert result == {"ok": True}
-
-    def test_429_retry_after_clamped(self) -> None:
-        client = _make_client(max_retries=1)
-        with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-            with patch("signal_normalizer.spotify_client.time.sleep") as mock_sleep:
-                mock_get.return_value = _mock_response(
-                    429, headers={"Retry-After": "9999"}
-                )
-                client._get("https://api.spotify.com/v1/test")
-        # Should be clamped to _MAX_RETRY_AFTER_SECONDS + small jitter, not 9999
-        assert mock_sleep.call_count >= 1
-        slept = mock_sleep.call_args_list[0][0][0]
-        assert slept <= 61  # 60s clamp + tiny jitter
-
-    def test_429_non_integer_retry_after(self) -> None:
-        client = _make_client(max_retries=1)
-        with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-            with patch("signal_normalizer.spotify_client.time.sleep"):
-                mock_get.return_value = _mock_response(
-                    429, headers={"Retry-After": "not-a-number"}
-                )
-                result = client._get("https://api.spotify.com/v1/test")
-        assert result is None  # should not raise, just fallback to default
-
-    def test_500_retries_then_gives_up(self) -> None:
-        client = _make_client(max_retries=2)
-        with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-            with patch("signal_normalizer.spotify_client.time.sleep"):
-                mock_get.return_value = _mock_response(500)
-                result = client._get("https://api.spotify.com/v1/test")
-        assert result is None
-        assert mock_get.call_count == 3
-
-    def test_401_refreshes_token_once(self) -> None:
-        client = _make_client()
-        with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-            with patch.object(client, "_refresh_access_token") as mock_refresh:
-                mock_get.side_effect = [
-                    _mock_response(401),
-                    _mock_response(200, {"data": 1}),
-                ]
-                result = client._get("https://api.spotify.com/v1/test")
-        mock_refresh.assert_called_once()
-        assert result == {"data": 1}
-
-    def test_double_401_returns_none(self) -> None:
-        """After one token refresh, a second 401 returns None (not raises)."""
-        client = _make_client()
-        with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-            with patch.object(client, "_refresh_access_token"):
-                mock_get.return_value = _mock_response(401)
-                result = client._get("https://api.spotify.com/v1/test")
-        assert result is None
-
-    def test_401_after_429_retries_refreshes_token(self) -> None:
-        """401 on attempt > 0 (after 429 retries) must still refresh once."""
-        client = _make_client(max_retries=3)
-        with patch("signal_normalizer.spotify_client.requests.get") as mock_get:
-            with patch("signal_normalizer.spotify_client.time.sleep"):
-                with patch.object(client, "_refresh_access_token") as mock_refresh:
-                    mock_get.side_effect = [
-                        _mock_response(429, headers={"Retry-After": "0"}),
-                        _mock_response(401),
-                        _mock_response(200, {"data": 1}),
-                    ]
-                    result = client._get("https://api.spotify.com/v1/test")
-        mock_refresh.assert_called_once()
-        assert result == {"data": 1}
+def _mock_token(client):
+    client._access_token = "test_token"
 
 
 class TestSearchTrack:
-    def _spotify_search_response(self) -> dict:
-        return {
+    def test_returns_uri_formatted_ids_on_success(self, client):
+        _mock_token(client)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
             "tracks": {
                 "items": [
                     {
                         "id": "track123",
-                        "popularity": 42,
                         "artists": [{"id": "artist456", "name": "Actress"}],
                     }
                 ]
             }
         }
+        with patch("requests.get", return_value=mock_resp):
+            artist_id, track_id = client.search_track("Actress", "Ascending")
 
-    def test_returns_track_on_success(self) -> None:
-        client = _make_client()
-        with patch.object(client, "_get") as mock_get:
-            with patch.object(client, "_get_artist_genres", return_value=["electronic"]):
-                mock_get.return_value = self._spotify_search_response()
-                result = client.search_track("Actress", "Ascending")
-        assert isinstance(result, SpotifyTrack)
-        assert result.track_id == "track123"
-        assert result.artist_id == "artist456"
-        assert result.genres == ["electronic"]
-        assert result.popularity == 42
+        assert artist_id == "spotify:artist:artist456"
+        assert track_id == "spotify:track:track123"
 
-    def test_returns_none_when_no_items(self) -> None:
-        client = _make_client()
-        with patch.object(client, "_get") as mock_get:
-            mock_get.return_value = {"tracks": {"items": []}}
-            result = client.search_track("Unknown", "Track")
-        assert result is None
+    def test_returns_none_none_on_empty_results(self, client):
+        _mock_token(client)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"tracks": {"items": []}}
+        with patch("requests.get", return_value=mock_resp):
+            artist_id, track_id = client.search_track("Unknown", "Track")
 
-    def test_returns_none_when_get_fails(self) -> None:
-        client = _make_client()
-        with patch.object(client, "_get", return_value=None):
-            result = client.search_track("Artist", "Title")
-        assert result is None
+        assert artist_id is None
+        assert track_id is None
 
-    def test_returns_none_when_missing_artist_id(self) -> None:
-        client = _make_client()
-        with patch.object(client, "_get") as mock_get:
-            mock_get.return_value = {
-                "tracks": {"items": [{"id": "t1", "popularity": 10, "artists": [{"name": "X"}]}]}
-            }
-            result = client.search_track("X", "Y")
-        assert result is None
+    def test_returns_none_none_on_timeout(self, client):
+        import requests as req
+        _mock_token(client)
+        with patch("requests.get", side_effect=req.Timeout):
+            artist_id, track_id = client.search_track("Actress", "Ascending")
 
-    def test_returns_none_when_artists_array_empty(self) -> None:
-        client = _make_client()
-        with patch.object(client, "_get") as mock_get:
-            mock_get.return_value = {
-                "tracks": {"items": [{"id": "t1", "popularity": 10, "artists": []}]}
-            }
-            result = client.search_track("X", "Y")
-        assert result is None
+        assert artist_id is None
+        assert track_id is None
 
+    def test_returns_none_none_on_non_200(self, client):
+        _mock_token(client)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        with patch("requests.get", return_value=mock_resp):
+            artist_id, track_id = client.search_track("Actress", "Ascending")
 
-class TestGetArtistGenres:
-    def test_returns_genres_on_success(self) -> None:
-        client = _make_client()
-        with patch.object(client, "_get", return_value={"genres": ["techno", "ambient"]}):
-            result = client._get_artist_genres("artist123")
-        assert result == ["techno", "ambient"]
+        assert artist_id is None
+        assert track_id is None
 
-    def test_returns_empty_on_missing_genres_key(self) -> None:
-        client = _make_client()
-        with patch.object(client, "_get", return_value={"name": "Actress"}):
-            result = client._get_artist_genres("artist123")
-        assert result == []
-
-    def test_returns_empty_when_get_fails(self) -> None:
-        client = _make_client()
-        with patch.object(client, "_get", return_value=None):
-            result = client._get_artist_genres("artist123")
-        assert result == []
-
-
-class TestGetAudioFeatures:
-    def test_returns_features_on_success(self) -> None:
-        client = _make_client()
-        data = {
-            "energy": 0.3, "valence": 0.2, "tempo": 95.0,
-            "danceability": 0.4, "acousticness": 0.1, "instrumentalness": 0.8,
+    def test_refreshes_token_on_401_then_retries(self, client):
+        client._access_token = "expired_token"
+        resp_401 = MagicMock()
+        resp_401.status_code = 401
+        resp_200 = MagicMock()
+        resp_200.status_code = 200
+        resp_200.json.return_value = {
+            "tracks": {"items": [{"id": "t1", "artists": [{"id": "a1", "name": "X"}]}]}
         }
-        with patch.object(client, "_get", return_value=data):
-            result = client.get_audio_features("track123")
-        assert isinstance(result, AudioFeatures)
-        assert result.energy == 0.3
+        token_resp = MagicMock()
+        token_resp.status_code = 200
+        token_resp.json.return_value = {"access_token": "new_token"}
 
-    def test_returns_none_on_missing_key(self) -> None:
-        client = _make_client()
-        with patch.object(client, "_get", return_value={"energy": 0.3}):
-            result = client.get_audio_features("track123")
-        assert result is None
+        with patch("requests.get", side_effect=[resp_401, resp_200]), \
+             patch("requests.post", return_value=token_resp):
+            artist_id, track_id = client.search_track("X", "Y")
 
-    def test_returns_none_when_get_fails(self) -> None:
-        client = _make_client()
-        with patch.object(client, "_get", return_value=None):
-            result = client.get_audio_features("track123")
-        assert result is None
+        assert artist_id == "spotify:artist:a1"
+        assert track_id == "spotify:track:t1"
+
+    def test_zero_retries_on_timeout_single_attempt(self, client):
+        import requests as req
+        _mock_token(client)
+        call_count = 0
+
+        def side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            raise req.Timeout
+
+        with patch("requests.get", side_effect=side_effect):
+            client.search_track("Actress", "Ascending")
+
+        assert call_count == 1

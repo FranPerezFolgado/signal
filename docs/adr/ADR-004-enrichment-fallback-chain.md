@@ -5,11 +5,13 @@
 
 ## Context
 
-The `normalizer` service must attach genres, audio features, and artist identity to every raw Last.fm scrobble before it enters the pipeline. Last.fm scrobbles contain only artist name and track title — no Spotify IDs, no genres, no audio features. Spotify is the primary enrichment source, but underground tracks, live bootlegs, limited releases, and artists with non-Latin names are disproportionately absent from Spotify's catalogue. These tracks are precisely the most valuable discovery candidates: the system exists to surface artists the listener doesn't already know. Silently dropping unenriched tracks would bias the pipeline toward mainstream artists and defeat the product's core purpose.
+The pipeline must attach genres and artist identity to every raw Last.fm scrobble before it enters the scoring stage. Last.fm scrobbles contain only artist name and track title — no Spotify IDs, no genres. Spotify is the primary enrichment source, but underground tracks, live bootlegs, limited releases, and artists with non-Latin names are disproportionately absent from Spotify's catalogue. These tracks are precisely the most valuable discovery candidates: the system exists to surface artists the listener doesn't already know. Silently dropping unenriched tracks would bias the pipeline toward mainstream artists and defeat the product's core purpose.
+
+**Update (ADR-007, 2026-05-23):** This decision was originally implemented inside the `normalizer` service. A production MAXPOLL failure caused by synchronous Spotify calls inside the Kafka poll loop required extracting enrichment into a dedicated `enricher` service. The fallback strategy described in this ADR is unchanged; the owning service is now `enricher`, not `normalizer`. See ADR-007 for the architectural rationale.
 
 ## Decision
 
-Enrich each track via a three-step fallback chain executed in order: (1) Spotify full enrichment, (2) Last.fm crowd-sourced tags as genres, (3) emit with `pending_enrichment=true`. Every raw play produces exactly one `tracks.normalized` message regardless of enrichment outcome — no track is ever dropped.
+Enrich each track via a three-step fallback chain executed in order: (1) Spotify full enrichment via `GET /artists/{id}` + `GET /tracks/{id}`, (2) Last.fm crowd-sourced tags as genres, (3) emit with `pending_enrichment=true`. Every normalized play produces exactly one `tracks.enriched` message regardless of enrichment outcome — no track is ever dropped.
 
 ## Alternatives considered
 
@@ -22,8 +24,8 @@ Better catalogue coverage for classical and folk than Last.fm tags, but adds a t
 **Block pipeline until enrichment succeeds (retry in place)** — *Rejected*
 Creates head-of-line blocking: one unavailable external API stalls all downstream consumers on the same Kafka partition. The Kafka at-least-once model already retries on restart — no additional blocking is needed.
 
-**Separate retry queue / enrichment service** — *Rejected*
-Decouples enrichment latency from pipeline throughput and enables targeted re-enrichment of `pending_enrichment=true` tracks. Architecturally cleaner, but adds an extra service and Kafka topic at MVP scale where a single normalizer instance is sufficient. Accepted as a post-MVP improvement.
+**Separate retry queue / enrichment service** — *Accepted (ADR-007)*
+Originally rejected at MVP scale as adding unnecessary complexity. After a production MAXPOLL failure this approach was adopted: enrichment now lives in a dedicated `enricher` service with its own consumer group, rate limiter, circuit breaker, and backoff logic.
 
 **Spotify → Last.fm → Last.fm (retry queue)** — *Accepted*
 
@@ -35,13 +37,13 @@ Decouples enrichment latency from pipeline throughput and enables targeted re-en
 
 ✅ The `pending_enrichment` flag is an explicit, inspectable state: `SELECT COUNT(*) FROM listening_history WHERE pending_enrichment = true` shows the re-enrichment backlog at any time.
 
-✅ The Kafka offset is committed only after both the PostgreSQL write and the `tracks.normalized` emit succeed. On Spotify 429 or transient network failure the message is retried from the same offset after restart, with no data loss.
+✅ The Kafka offset is committed only after the `tracks.enriched` emit succeeds. On Spotify 429 or transient network failure the enricher retries from the same offset after restart, with no data loss.
 
-❌ `pending_enrichment=true` tracks accumulate without being re-enriched. The scorer must handle `audio_features: null` by omitting the `audio_distance` term and re-normalising W1 and W2. This makes scores for pending tracks less precise.
+❌ `pending_enrichment=true` tracks accumulate without being re-enriched. The scorer handles missing genres/popularity by scoring on the factors that are available.
 
-❌ The three-step chain makes each message potentially three sequential HTTP calls (Spotify search, Spotify artist genres, audio features), plus a Last.fm fallback call. Under Spotify's standard rate limit (~100 req/min) a full 61k-scrobble backfill will take approximately 30 minutes with backoff.
+❌ The three-step chain makes each message up to two sequential Spotify calls (`GET /artists/{id}` + `GET /tracks/{id}`), plus a Last.fm fallback call. Under Spotify's rate limit the enricher uses a token-bucket limiter and exponential backoff with jitter to stay within quota.
 
-❌ Spotify 429 responses trigger exponential backoff capped at 25 seconds (below the Kafka `session.timeout.ms` of 30 seconds to avoid consumer group rebalance during sleep). A sustained Spotify outage will stall the pipeline indefinitely with no dead-letter mechanism.
+❌ A sustained Spotify outage opens the circuit breaker and causes the enricher to emit `pending_enrichment=true` for all subsequent messages until the breaker recovers. The dead-letter queue pattern (ADR-005) handles messages that cannot be processed at all.
 
 ## When to reconsider
 

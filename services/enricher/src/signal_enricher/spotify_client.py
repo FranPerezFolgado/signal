@@ -1,4 +1,4 @@
-import time
+import re
 
 import requests
 
@@ -9,18 +9,21 @@ _log = get_logger(__name__)
 _TOKEN_URL = "https://accounts.spotify.com/api/token"
 _API_BASE = "https://api.spotify.com/v1"
 
+# Spotify IDs are base-62 strings, typically 22 chars. Allow 10–30 to be safe.
+_SPOTIFY_ID_RE = re.compile(r"^[A-Za-z0-9]{10,30}$")
+
 
 class SpotifyAuthError(Exception):
     pass
 
 
-class SpotifyClient:
+class EnricherSpotifyClient:
     def __init__(
         self,
         client_id: str,
         client_secret: str,
         refresh_token: str,
-        timeout: float = 2.0,
+        timeout: float = 5.0,
     ) -> None:
         self._client_id = client_id
         self._client_secret = client_secret
@@ -36,11 +39,11 @@ class SpotifyClient:
             timeout=10,
         )
         if resp.status_code != 200:
-            raise SpotifyAuthError(f"Token refresh failed with status {resp.status_code}")
+            raise SpotifyAuthError(f"Token refresh failed: {resp.status_code}")
         self._access_token = resp.json()["access_token"]
         _log.info("spotify_token_refreshed")
 
-    def _get(self, url: str, params: dict | None = None) -> dict | None:
+    def _get(self, url: str) -> dict | None:
         if not self._access_token:
             try:
                 self._refresh_access_token()
@@ -48,16 +51,14 @@ class SpotifyClient:
                 _log.error("spotify_token_unavailable", error=str(exc))
                 return None
 
-        token_refreshed = False
         try:
             resp = requests.get(
                 url,
                 headers={"Authorization": f"Bearer {self._access_token}"},
-                params=params,
                 timeout=self._timeout,
             )
         except requests.Timeout:
-            _log.warning("spotify_search_timeout", url=url)
+            _log.warning("spotify_timeout", url=url)
             return None
         except requests.RequestException as exc:
             _log.warning("spotify_request_error", error=str(exc))
@@ -66,44 +67,60 @@ class SpotifyClient:
         if resp.status_code == 200:
             return resp.json()
 
-        if resp.status_code == 401 and not token_refreshed:
+        if resp.status_code == 401:
             _log.warning("spotify_401_refreshing_token")
             try:
                 self._refresh_access_token()
-                token_refreshed = True
-            except SpotifyAuthError as exc:
-                _log.error("spotify_token_refresh_failed", error=str(exc))
-                return None
-            try:
                 resp = requests.get(
                     url,
                     headers={"Authorization": f"Bearer {self._access_token}"},
-                    params=params,
                     timeout=self._timeout,
                 )
                 if resp.status_code == 200:
                     return resp.json()
-            except requests.RequestException:
+            except (SpotifyAuthError, requests.RequestException):
                 return None
 
         _log.warning("spotify_non_200", status=resp.status_code, url=url)
         return None
 
-    def search_track(self, artist: str, title: str) -> tuple[str | None, str | None]:
-        """Return (artist_id_uri, track_id_uri) or (None, None) on failure."""
-        query = f"track:{title} artist:{artist}"
-        data = self._get(f"{_API_BASE}/search", params={"q": query, "type": "track", "limit": 1})
+    def _strip_uri_prefix(self, uri: str | None, kind: str) -> str | None:
+        """Extract and validate a raw Spotify ID from a URI like spotify:artist:xxx."""
+        if not uri:
+            return None
+        prefix = f"spotify:{kind}:"
+        if not uri.startswith(prefix):
+            _log.warning("invalid_spotify_uri_format", kind=kind, uri=uri[:40])
+            return None
+        raw_id = uri[len(prefix):]
+        if not _SPOTIFY_ID_RE.match(raw_id):
+            _log.warning("invalid_spotify_id_format", kind=kind, raw_id=raw_id[:40])
+            return None
+        return raw_id
+
+    def get_artist_data(self, artist_id_uri: str | None) -> dict | None:
+        """Return genres, popularity, followers for an artist URI."""
+        raw_id = self._strip_uri_prefix(artist_id_uri, "artist")
+        if not raw_id:
+            return None
+        data = self._get(f"{_API_BASE}/artists/{raw_id}")
         if not data:
-            return None, None
-        items = data.get("tracks", {}).get("items", [])
-        if not items:
-            return None, None
-        item = items[0]
-        track_id = item.get("id")
-        track_artists = item.get("artists", [])
-        if not track_id or not track_artists:
-            return None, None
-        artist_id = track_artists[0].get("id")
-        if not artist_id:
-            return None, None
-        return f"spotify:artist:{artist_id}", f"spotify:track:{track_id}"
+            return None
+        return {
+            "genres": data.get("genres", []),
+            "artist_popularity": data.get("popularity"),
+            "followers": data.get("followers", {}).get("total"),
+        }
+
+    def get_track_data(self, track_id_uri: str | None) -> dict | None:
+        """Return track popularity and duration for a track URI."""
+        raw_id = self._strip_uri_prefix(track_id_uri, "track")
+        if not raw_id:
+            return None
+        data = self._get(f"{_API_BASE}/tracks/{raw_id}")
+        if not data:
+            return None
+        return {
+            "track_popularity": data.get("popularity"),
+            "duration_ms": data.get("duration_ms"),
+        }

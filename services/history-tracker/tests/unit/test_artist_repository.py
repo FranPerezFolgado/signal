@@ -10,38 +10,81 @@ def repo():
     return ArtistRepository()
 
 
-def _make_conn(rowcount: int) -> MagicMock:
+def _make_conn(fetchone_return) -> MagicMock:
     conn = MagicMock()
     cursor = MagicMock()
     cursor.__enter__ = MagicMock(return_value=cursor)
     cursor.__exit__ = MagicMock(return_value=False)
-    cursor.rowcount = rowcount
+    cursor.fetchone.return_value = fetchone_return
     conn.cursor.return_value = cursor
     return conn
 
 
-def test_increment_returns_true_when_artist_found(repo):
-    conn = _make_conn(rowcount=1)
-    result = repo.increment_play_count(conn, "Radiohead")
-    assert result is True
+def _sample_msg(**kwargs):
+    msg = {"artist": "Radiohead", "genres": ["alternative rock"]}
+    msg.update(kwargs)
+    return msg
 
 
-def test_increment_returns_false_when_artist_not_found(repo):
-    conn = _make_conn(rowcount=0)
-    result = repo.increment_play_count(conn, "Unknown Artist")
-    assert result is False
+def test_upsert_returns_true_on_insert(repo):
+    conn = _make_conn(("id1", True))
+    assert repo.upsert(conn, _sample_msg()) is True
 
 
-def test_increment_logs_warn_when_not_found(repo):
-    conn = _make_conn(rowcount=0)
+def test_upsert_returns_false_on_conflict(repo):
+    conn = _make_conn(("id1", False))
+    assert repo.upsert(conn, _sample_msg()) is False
+
+
+def test_upsert_returns_false_when_no_row(repo):
+    conn = _make_conn(None)
+    assert repo.upsert(conn, _sample_msg()) is False
+
+
+def test_upsert_sql_inserts_tracked_status(repo):
+    conn = _make_conn(("id1", True))
+    repo.upsert(conn, _sample_msg())
+    executed_sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
+    assert "'TRACKED'" in executed_sql
+
+
+def test_upsert_sql_uses_case_insensitive_conflict(repo):
+    conn = _make_conn(("id1", True))
+    repo.upsert(conn, _sample_msg())
+    executed_sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
+    assert "LOWER(name)" in executed_sql
+
+
+def test_upsert_new_track_sets_play_delta_1(repo):
+    conn = _make_conn(("id1", False))
+    repo.upsert(conn, _sample_msg(), new_track=True)
+    params = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][1]
+    assert params["play_delta"] == 1
+
+
+def test_upsert_repeat_play_sets_play_delta_0(repo):
+    conn = _make_conn(("id1", False))
+    repo.upsert(conn, _sample_msg(), new_track=False)
+    params = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][1]
+    assert params["play_delta"] == 0
+
+
+def test_upsert_always_increments_scrobble_count(repo):
+    conn = _make_conn(("id1", False))
+    repo.upsert(conn, _sample_msg(), new_track=False)
+    executed_sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
+    assert "scrobble_count + 1" in executed_sql
+
+
+def test_upsert_coerces_empty_genres_to_none(repo):
+    conn = _make_conn(("id1", True))
+    repo.upsert(conn, _sample_msg(genres=[]))
+    params = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][1]
+    assert params["genres"] is None
+
+
+def test_upsert_logs_on_insert(repo):
+    conn = _make_conn(("id1", True))
     with patch("signal_history_tracker.artist_repository._log") as mock_log:
-        repo.increment_play_count(conn, "Ghost Artist")
-    mock_log.warning.assert_called_once_with("artist_not_found", artist="Ghost Artist")
-
-
-def test_increment_sql_uses_case_insensitive_match(repo):
-    conn = _make_conn(rowcount=1)
-    repo.increment_play_count(conn, "Radiohead")
-    cursor = conn.cursor.return_value.__enter__.return_value
-    executed_sql = cursor.execute.call_args[0][0]
-    assert "LOWER(name) = LOWER(" in executed_sql
+        repo.upsert(conn, _sample_msg())
+    mock_log.info.assert_called_once_with("artist_inserted", artist="Radiohead")

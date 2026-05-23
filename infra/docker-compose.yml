@@ -1,5 +1,5 @@
+name: signal
 services:
-
   # ─── Kafka (KRaft — sin Zookeeper desde Kafka 4.x / CP 8.x) ──────────────────
   kafka:
     image: confluentinc/cp-kafka:8.1.2
@@ -26,7 +26,13 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server",
+          "localhost:9092",
+        ]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -45,12 +51,27 @@ services:
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic raw.plays          --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic raw.tracks         --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic tracks.normalized  --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic tracks.enriched    --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic listening.history  --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic tracks.novel       --partitions 3 --replication-factor 1
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic history-tracker.dlq --partitions 3 --replication-factor 1
       echo 'Topics creados:'
       kafka-topics --bootstrap-server kafka:29092 --list
       "
+    restart: on-failure
+
+  # ─── DB migrations (dbmate) ──────────────────────────────────────────────────
+  migrate:
+    image: ghcr.io/amacneil/dbmate:2
+    container_name: signal-migrate
+    command: --wait up
+    environment:
+      DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal?sslmode=disable
+    volumes:
+      - ./postgres/migrations:/db/migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: on-failure
 
   # ─── PostgreSQL ───────────────────────────────────────────────────────────────
@@ -61,7 +82,7 @@ services:
     environment:
       POSTGRES_DB: signal
       POSTGRES_USER: signal
-      POSTGRES_PASSWORD: signal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-signal}
     ports:
       - "5432:5432"
     volumes:
@@ -84,15 +105,15 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
       kafka-init:
+        condition: service_completed_successfully
+      migrate:
         condition: service_completed_successfully
     env_file: ../.env
     environment:
       # Override host values with Docker-internal addresses
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      DATABASE_URL: postgresql://signal:signal@postgres:5432/signal
+      DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
 
   # ─── normalizer ──────────────────────────────────────────────────────────────
   normalizer:
@@ -105,14 +126,38 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
       kafka-init:
+        condition: service_completed_successfully
+      migrate:
         condition: service_completed_successfully
     env_file: ../.env
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      DATABASE_URL: postgresql://signal:signal@postgres:5432/signal
+
+  # ─── enricher ────────────────────────────────────────────────────────────────
+  enricher:
+    build:
+      context: ..
+      dockerfile: services/enricher/Dockerfile
+    container_name: signal-enricher
+    profiles: [services]
+    restart: on-failure
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    env_file: ../.env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPOTIFY_RATE_LIMIT_PER_30S: 180
+      CIRCUIT_BREAKER_FAILURE_THRESHOLD: 5
+      CIRCUIT_BREAKER_TIMEOUT_S: 60
+      BACKOFF_BASE_S: 1
+      BACKOFF_MAX_S: 30
+      LASTFM_FALLBACK_ENABLED: "true"
 
   # ─── kafka-ui ────────────────────────────────────────────────────────────────
   kafka-ui:
@@ -141,10 +186,12 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file: ../.env
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      DATABASE_URL: postgresql://signal:signal@postgres:5432/signal
+      DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
 
 volumes:
   kafka-data:
