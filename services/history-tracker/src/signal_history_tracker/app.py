@@ -76,8 +76,7 @@ def run_consumer(settings: Settings) -> None:
 
                 try:
                     inserted = history_repo.upsert(conn, raw)
-                    if inserted:
-                        artist_repo.upsert(conn, raw)
+                    artist_repo.upsert(conn, raw, new_track=inserted)
                 except Exception as exc:
                     _log.error("db_error", signal_id=str(raw["signal_id"])[:8], exc_info=True)
                     conn.rollback()
