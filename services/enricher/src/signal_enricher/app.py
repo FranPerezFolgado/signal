@@ -15,6 +15,14 @@ _CLIENT_ID = "enricher"
 _log = get_logger(__name__)
 
 
+def _is_valid(msg: dict) -> bool:
+    return (
+        isinstance(msg.get("signal_id"), str)
+        and isinstance(msg.get("artist"), str)
+        and isinstance(msg.get("title"), str)
+    )
+
+
 def run_consumer(settings: Settings) -> None:
     enricher = Enricher(settings)
 
@@ -44,16 +52,25 @@ def run_consumer(settings: Settings) -> None:
             if normalized is None:
                 continue
 
+            if not _is_valid(normalized):
+                _log.warning("malformed_message_skipped", key_count=len(normalized))
+                consumer.commit()
+                continue
+
             signal_id = normalized.get("signal_id", "")
             artist = normalized.get("artist", "")
+            processed_at = datetime.now(tz=UTC).isoformat()
 
             enriched = enricher.enrich(normalized)
-            enriched["processed_at"] = datetime.now(tz=UTC).isoformat()
+            enriched["processed_at"] = processed_at
 
             producer.produce(_OUTPUT_TOPIC, enriched, key=signal_id)
             unflushed = producer.flush(timeout=10.0)
             if unflushed > 0:
+                # Accept at-most-once for this message rather than risk
+                # re-processing the same message in a tight loop.
                 _log.error("kafka_flush_timeout", unflushed=unflushed, signal_id=signal_id[:8])
+                consumer.commit()
                 continue
 
             consumer.commit()
