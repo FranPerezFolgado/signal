@@ -113,7 +113,7 @@ services:
     environment:
       # Override host values with Docker-internal addresses
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      DATABASE_URL: postgresql://signal:signal@postgres:5432/signal
+      DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
 
   # ─── normalizer ──────────────────────────────────────────────────────────────
   normalizer:
@@ -191,7 +191,7 @@ services:
     env_file: ../.env
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      DATABASE_URL: postgresql://signal:signal@postgres:5432/signal
+      DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
 
 volumes:
   kafka-data:

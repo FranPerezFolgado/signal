@@ -35,6 +35,6 @@ class LastfmFallbackClient:
                 return []
             tags = data.get("track", {}).get("toptags", {}).get("tag", [])
             return [t["name"] for t in tags[:_MAX_TAGS] if t.get("name")]
-        except Exception as exc:
+        except (requests.RequestException, KeyError, ValueError) as exc:
             _log.warning("lastfm_fallback_error", artist=artist, error=str(exc))
             return []
