@@ -11,8 +11,8 @@ class State(Enum):
 
 class CircuitBreaker:
     """
-    CLOSED  → failures >= threshold → OPEN
-    OPEN    → timeout elapsed → HALF_OPEN
+    CLOSED    → failures >= threshold → OPEN
+    OPEN      → timeout elapsed → HALF_OPEN (via should_allow)
     HALF_OPEN → success → CLOSED; failure → OPEN
     """
 
@@ -24,14 +24,26 @@ class CircuitBreaker:
         self._opened_at: float = 0.0
         self._lock = threading.Lock()
 
+    def should_allow(self) -> bool:
+        """Returns True if a request should proceed.
+        Atomically transitions OPEN→HALF_OPEN when the timeout has elapsed."""
+        with self._lock:
+            if self._state == State.CLOSED:
+                return True
+            if self._state == State.HALF_OPEN:
+                return True
+            # OPEN — allow probe once timeout elapses
+            if time.monotonic() - self._opened_at >= self._timeout:
+                self._state = State.HALF_OPEN
+                return True
+            return False
+
     @property
     def is_open(self) -> bool:
+        """Pure read. True only when the circuit is actively blocking requests."""
         with self._lock:
             if self._state == State.OPEN:
-                if time.monotonic() - self._opened_at >= self._timeout:
-                    self._state = State.HALF_OPEN
-                    return False
-                return True
+                return time.monotonic() - self._opened_at < self._timeout
             return False
 
     def record_success(self) -> None:
