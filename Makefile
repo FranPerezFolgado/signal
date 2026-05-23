@@ -127,3 +127,15 @@ history-tracker-logs:
 ## Para y elimina el contenedor del history-tracker
 history-tracker-down:
 	@$(COMPOSE) stop history-tracker && $(COMPOSE) rm -f history-tracker
+
+# ─── kafka-ui ─────────────────────────────────────────────────────────────────
+
+.PHONY: kafka-ui-up kafka-ui-down
+
+## Arranca kafka-ui en http://localhost:8080 (perfil tools)
+kafka-ui-up:
+	@$(COMPOSE) --profile tools up -d kafka-ui
+
+## Para y elimina el contenedor de kafka-ui
+kafka-ui-down:
+	@$(COMPOSE) stop kafka-ui && $(COMPOSE) rm -f kafka-ui

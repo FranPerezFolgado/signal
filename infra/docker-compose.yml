@@ -116,10 +116,11 @@ services:
 
   # ─── kafka-ui ────────────────────────────────────────────────────────────────
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: provectuslabs/kafka-ui:v0.7.2
     container_name: signal-kafka-ui
+    profiles: [tools]
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: signal
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
@@ -134,7 +135,7 @@ services:
       dockerfile: services/history-tracker/Dockerfile
     container_name: signal-history-tracker
     profiles: [services]
-    restart: unless-stopped
+    restart: on-failure
     depends_on:
       kafka-init:
         condition: service_completed_successfully
