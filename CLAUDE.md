@@ -9,19 +9,20 @@ Musical artist discovery system. Event-driven pipeline that ingests Last.fm list
 - **API**: FastAPI + Swagger UI
 - **Infra**: Docker Compose (no cloud, no K8s in the MVP)
 
-## Services (MVP)
+## Services (MVP v2)
 | Service | Description |
 |---|---|
 | `lastfm-ingester` | Polls Last.fm → topic `raw.plays` |
-| `normalizer` | Enriches with Spotify (genres, audio features) → `tracks.normalized` |
-| `history-tracker` | Persists history in PostgreSQL → `listening.history` |
+| `normalizer` | ID resolution only (Spotify search) → `tracks.normalized` |
+| `enricher` | Genres + popularity via Spotify/Last.fm fallback → `tracks.enriched` |
+| `history-tracker` | Persists history + artist upsert in PostgreSQL → `listening.history` |
 | `novelty-detector` | Detects new artists/genres → `tracks.novel` |
-| `scorer` | Multi-factor score (genre novelty + underground + audio distance) → PostgreSQL |
+| `scorer` | 2-factor score (genre_novelty + popularity_norm) → PostgreSQL |
 | `artist-tracker` | 1-hop expansion via Spotify related-artists → `raw.tracks` |
 | `api` | FastAPI + Swagger UI to manage artists and view recommendations |
 
 ## Kafka Topics
-raw.plays → tracks.normalized → listening.history / tracks.novel → scorer → PostgreSQL
+raw.plays → tracks.normalized → tracks.enriched → listening.history / tracks.novel → scorer → PostgreSQL
 
 ## Artist States
 TRACKED → FOLLOWING → PUBLISHED / BLACKLISTED
@@ -41,7 +42,7 @@ signal/
     └── sessions/              # Session summaries
 
 ## ADRs pending
-003 Python MVP / Go v2 · 004 Enrichment fallback · 005 Artist as primary entity · 006 Initial classification
+Python MVP / Go v2 · Artist as primary entity · Initial classification
 
 ## QMD Collection
 Active collection: `signal`
@@ -59,5 +60,5 @@ Active collection: `signal`
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/003-history-tracker/plan.md`
+`specs/004-enricher/plan.md`
 <!-- SPECKIT END -->

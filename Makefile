@@ -128,6 +128,38 @@ history-tracker-logs:
 history-tracker-down:
 	@$(COMPOSE) stop history-tracker && $(COMPOSE) rm -f history-tracker
 
+# ─── enricher ─────────────────────────────────────────────────────────────────
+
+.PHONY: enricher-up enricher-logs enricher-down
+
+## Arranca el enricher como contenedor Docker en background
+enricher-up:
+	@$(COMPOSE) --profile services up -d --build enricher
+
+## Muestra los logs del enricher (Ctrl+C para salir)
+enricher-logs:
+	@docker logs -f signal-enricher
+
+## Para y elimina el contenedor del enricher
+enricher-down:
+	@$(COMPOSE) stop enricher && $(COMPOSE) rm -f enricher
+
+# ─── all pipeline services ────────────────────────────────────────────────────
+
+.PHONY: services-up services-down services-restart
+
+## Arranca (y reconstruye) todos los servicios del pipeline
+services-up:
+	@$(COMPOSE) --profile services up -d --build
+
+## Para todos los servicios del pipeline (mantiene infra)
+services-down:
+	@$(COMPOSE) --profile services stop
+
+## Reconstruye y reinicia todos los servicios del pipeline
+services-restart:
+	@$(COMPOSE) --profile services up -d --build --force-recreate
+
 # ─── kafka-ui ─────────────────────────────────────────────────────────────────
 
 .PHONY: kafka-ui-up kafka-ui-down
