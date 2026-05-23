@@ -11,7 +11,7 @@ from signal_history_tracker.dlq_publisher import DlqPublisher
 from signal_history_tracker.history_repository import HistoryRepository
 from signal_history_tracker.settings import Settings
 
-_INPUT_TOPIC = "tracks.normalized"
+_INPUT_TOPIC = "tracks.enriched"
 _OUTPUT_TOPIC = "listening.history"
 _DLQ_TOPIC = "history-tracker.dlq"
 _CLIENT_ID = "history-tracker"
@@ -76,8 +76,7 @@ def run_consumer(settings: Settings) -> None:
 
                 try:
                     inserted = history_repo.upsert(conn, raw)
-                    if inserted:
-                        artist_repo.increment_play_count(conn, raw["artist"])
+                    artist_repo.upsert(conn, raw)
                 except Exception as exc:
                     _log.error("db_error", signal_id=str(raw["signal_id"])[:8], exc_info=True)
                     conn.rollback()

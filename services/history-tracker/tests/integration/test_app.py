@@ -17,7 +17,7 @@ from confluent_kafka import Producer
 
 BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://signal:signal@localhost:5432/signal")
-INPUT_TOPIC = "tracks.normalized"
+INPUT_TOPIC = "tracks.enriched"
 OUTPUT_TOPIC = "listening.history"
 DLQ_TOPIC = "history-tracker.dlq"
 
@@ -86,13 +86,14 @@ def test_happy_path_persists_row_and_increments_play_count(db):
         "signal_id": signal_id,
         "artist": "Radiohead",
         "artist_id": "spotify:artist:4Z8W4fKeB5YxbusRsdQVPb",
+        "track_id": "spotify:track:t1",
         "title": "Karma Police",
         "genres": ["alternative rock"],
         "played_at": "2026-05-21T10:00:00+00:00",
         "sources": ["lastfm"],
-        "audio_features": {"energy": 0.5, "valence": 0.3, "tempo": 120.0,
-                           "danceability": 0.4, "acousticness": 0.1, "instrumentalness": 0.0},
-        "popularity": 75,
+        "artist_popularity": 75,
+        "track_popularity": 60,
+        "enrichment_source": "spotify",
         "pending_enrichment": False,
         "processed_at": "2026-05-21T10:00:01+00:00",
     }
@@ -117,12 +118,14 @@ def test_idempotency_no_double_insert_or_double_count(db):
         "signal_id": signal_id,
         "artist": "Radiohead",
         "artist_id": "spotify:artist:4Z8W4fKeB5YxbusRsdQVPb",
+        "track_id": "spotify:track:t2",
         "title": "Creep",
         "genres": ["alternative rock"],
         "played_at": "2026-05-21T11:00:00+00:00",
         "sources": ["lastfm"],
-        "audio_features": None,
-        "popularity": 80,
+        "artist_popularity": 80,
+        "track_popularity": 70,
+        "enrichment_source": "spotify",
         "pending_enrichment": False,
         "processed_at": "2026-05-21T11:00:01+00:00",
     }
@@ -176,12 +179,14 @@ def test_pending_enrichment_message_persisted_and_forwarded(db):
         "signal_id": signal_id,
         "artist": "Unknown Mortal Orchestra",
         "artist_id": None,
+        "track_id": None,
         "title": "So Good At Being In Trouble",
         "genres": [],
         "played_at": "2026-05-21T12:00:00+00:00",
         "sources": ["lastfm"],
-        "audio_features": None,
-        "popularity": None,
+        "artist_popularity": None,
+        "track_popularity": None,
+        "enrichment_source": "pending",
         "pending_enrichment": True,
         "processed_at": "2026-05-21T12:00:01+00:00",
     }
