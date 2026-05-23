@@ -66,7 +66,7 @@ services:
     container_name: signal-migrate
     command: --wait up
     environment:
-      DATABASE_URL: postgresql://signal:signal@postgres:5432/signal?sslmode=disable
+      DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal?sslmode=disable
     volumes:
       - ./postgres/migrations:/db/migrations
     depends_on:
@@ -82,7 +82,7 @@ services:
     environment:
       POSTGRES_DB: signal
       POSTGRES_USER: signal
-      POSTGRES_PASSWORD: signal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-signal}
     ports:
       - "5432:5432"
     volumes:

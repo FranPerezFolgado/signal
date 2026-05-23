@@ -1,8 +1,12 @@
 -- migrate:up
-
+--
+-- Invariant: init.sql represents the v2 final schema for fresh databases.
+-- This migration handles in-place upgrades from v1 (audio_features, popularity).
+-- All statements are idempotent: DROP IF EXISTS, ADD IF NOT EXISTS, and a DO $$
+-- guard on RENAME so fresh installs (where the column is already artist_popularity)
+-- apply this migration as a safe no-op.
+--
 -- DROP and RENAME must be separate ALTER TABLE statements in PostgreSQL.
--- The RENAME is guarded with a DO block so it's a no-op on fresh databases
--- where init.sql already created the column as artist_popularity.
 
 ALTER TABLE listening_history DROP COLUMN IF EXISTS audio_features;
 
