@@ -99,6 +99,32 @@ class TestEnrich:
         enricher._spotify.get_artist_data.assert_not_called()
         assert result["pending_enrichment"] is True
 
+    def test_circuit_open_with_lastfm_enabled(self):
+        enricher = Enricher(_make_settings(lastfm_enabled=True))
+        enricher._circuit_breaker._state = __import__(
+            "signal_enricher.circuit_breaker", fromlist=["State"]
+        ).State.OPEN
+        enricher._circuit_breaker._opened_at = __import__("time").monotonic()
+        enricher._lastfm.get_tags = MagicMock(return_value=["ambient"])
+        enricher._spotify.get_artist_data = MagicMock()
+
+        result = enricher.enrich(_normalized())
+
+        enricher._spotify.get_artist_data.assert_not_called()
+        assert result["enrichment_source"] == "lastfm"
+        assert result["genres"] == ["ambient"]
+        assert result["pending_enrichment"] is False
+
+    def test_backoff_retries_on_partial_failure(self):
+        enricher = Enricher(_make_settings(lastfm_enabled=False))
+        enricher._spotify.get_artist_data = MagicMock(return_value=None)
+        enricher._spotify.get_track_data = MagicMock(return_value=None)
+        enricher._rate_limiter.acquire = MagicMock()
+
+        enricher.enrich(_normalized())
+
+        assert enricher._spotify.get_artist_data.call_count == 3
+
     def test_output_preserves_normalized_fields(self):
         enricher = Enricher(_make_settings())
         enricher._spotify.get_artist_data = MagicMock(

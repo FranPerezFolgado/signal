@@ -33,69 +33,63 @@ class Enricher:
         self._backoff_base = settings.backoff_base_s
         self._backoff_max = settings.backoff_max_s
 
+    def _lastfm_fallback(self, artist: str, title: str) -> tuple[str, list[str] | None, bool]:
+        if self._lastfm:
+            tags = self._lastfm.get_tags(artist, title)
+            if tags:
+                _log.info("lastfm_fallback_used", artist=artist)
+                return "lastfm", tags, False
+        return "pending", None, True
+
     def _spotify_with_backoff(self, artist_id: str, track_id: str) -> dict | None:
-        """Attempt Spotify enrichment with exponential backoff + jitter."""
+        """Attempt Spotify enrichment with exponential backoff + jitter.
+        record_failure is called only once, after all retries are exhausted."""
         for attempt in range(3):
             self._rate_limiter.acquire()
             artist_data = self._spotify.get_artist_data(artist_id)
             track_data = self._spotify.get_track_data(track_id)
             if artist_data is not None and track_data is not None:
                 return {**artist_data, **track_data}
-            delay = min(
-                self._backoff_base * (2 ** attempt) + random.uniform(0, 0.5),
-                self._backoff_max,
-            )
-            _log.warning("spotify_enrichment_failed", attempt=attempt, retry_in=delay)
-            self._circuit_breaker.record_failure()
-            if self._circuit_breaker.is_open:
-                _log.warning("circuit_breaker_opened_mid_backoff")
-                return None
-            time.sleep(delay)
+            if attempt < 2:
+                delay = min(
+                    self._backoff_base * (2 ** attempt) + random.uniform(0, 0.5),
+                    self._backoff_max,
+                )
+                _log.warning("spotify_enrichment_failed", attempt=attempt, retry_in=delay)
+                time.sleep(delay)
+        # All retries exhausted — count as one failure against the circuit
+        self._circuit_breaker.record_failure()
         return None
 
     def enrich(self, normalized: dict) -> dict:
-        """
-        Enrich a normalized track message.
-        Returns the enriched dict; pending_enrichment=True when enrichment unavailable.
-        """
+        """Enrich a normalized track message.
+        Returns the enriched dict; pending_enrichment=True when enrichment unavailable."""
         artist_id = normalized.get("artist_id")
         track_id = normalized.get("track_id")
         artist = normalized["artist"]
         title = normalized["title"]
 
-        enrichment_source: str = "pending"
         genres: list[str] | None = None
         artist_popularity: int | None = None
         track_popularity: int | None = None
+        enrichment_source = "pending"
         pending = True
 
-        if artist_id and track_id and not self._circuit_breaker.is_open:
-            result = self._spotify_with_backoff(artist_id, track_id)
-            if result:
-                self._circuit_breaker.record_success()
-                genres = result.get("genres") or []
-                artist_popularity = result.get("artist_popularity")
-                track_popularity = result.get("track_popularity")
-                enrichment_source = "spotify"
-                pending = False
-            else:
-                # Fallback to Last.fm for genres only
-                if self._lastfm:
-                    tags = self._lastfm.get_tags(artist, title)
-                    if tags:
-                        genres = tags
-                        enrichment_source = "lastfm"
-                        pending = False
-                        _log.info("lastfm_fallback_used", artist=artist)
-
-        elif artist_id and track_id and self._circuit_breaker.is_open:
-            _log.warning("circuit_open_skipping_spotify", artist=artist)
-            if self._lastfm:
-                tags = self._lastfm.get_tags(artist, title)
-                if tags:
-                    genres = tags
-                    enrichment_source = "lastfm"
+        if artist_id and track_id:
+            if self._circuit_breaker.should_allow():
+                result = self._spotify_with_backoff(artist_id, track_id)
+                if result:
+                    self._circuit_breaker.record_success()
+                    genres = result.get("genres") or []
+                    artist_popularity = result.get("artist_popularity")
+                    track_popularity = result.get("track_popularity")
+                    enrichment_source = "spotify"
                     pending = False
+                else:
+                    enrichment_source, genres, pending = self._lastfm_fallback(artist, title)
+            else:
+                _log.warning("circuit_open_skipping_spotify", artist=artist)
+                enrichment_source, genres, pending = self._lastfm_fallback(artist, title)
 
         return {
             **normalized,
