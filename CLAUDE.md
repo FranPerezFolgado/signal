@@ -60,5 +60,5 @@ Active collection: `signal`
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/004-enricher/plan.md`
+`specs/005-add-scrobble-count/plan.md`
 <!-- SPECKIT END -->

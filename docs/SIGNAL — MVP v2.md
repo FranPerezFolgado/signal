@@ -496,13 +496,20 @@ flowchart TD
 **Duración estimada**: 2 sesiones
 **Objetivo**: detectar artistas y géneros nuevos. Consume de `tracks.enriched`.
 
+### Métricas de escucha disponibles en `artists`
+
+| Columna | Representa | Uso en novelty-detector |
+|---|---|---|
+| `play_count` | Amplitud de catálogo — nº de canciones distintas escuchadas del artista | Verificar si un artista supera `AUTO_FOLLOW_PLAYS` para promover a `FOLLOWING` |
+| `scrobble_count` | Intensidad de escucha — total de plays procesados por el pipeline | Señal de intensidad: un artista nuevo con `scrobble_count` alto ya tiene tracción real |
+
 ### Tareas
 
 - [ ] Crear `services/novelty-detector/` (Python; Go en v3)
 - [ ] Consumir `tracks.enriched`
 - [ ] Calcular `genre_novelty_ratio` y `artist_is_new`
 - [ ] Si hay novedad → emitir a `tracks.novel`
-- [ ] Si artista nuevo supera `AUTO_FOLLOW_PLAYS` → promover a `FOLLOWING`
+- [ ] Si artista nuevo supera `AUTO_FOLLOW_PLAYS` (comparar con `scrobble_count`) → promover a `FOLLOWING`
 
 ### Schema `tracks.novel`
 
@@ -548,6 +555,16 @@ si high_priority: score *= HP_BONUS
 ```
 
 **Por qué no hay `audio_distance`**: Spotify deprecó `/v1/audio-features` en noviembre 2024. No hay endpoint equivalente para apps nuevas. Se elimina el factor y se redistribuye el peso hacia género. Decisión documentada en ADR-008.
+
+### Inputs disponibles de la tabla `artists`
+
+| Columna | Uso en scorer |
+|---|---|
+| `scrobble_count` | **Intensidad de escucha** — usar para ponderar o filtrar artistas con poca escucha real |
+| `play_count` | Amplitud de catálogo — indica variedad de tracks escuchados, no frecuencia |
+| `high_priority` | Multiplicador `HP_BONUS` si `true` |
+
+> `scrobble_count` es la métrica recomendada para medir afinidad con un artista. `play_count` mide amplitud, no intensidad.
 
 ### Tareas
 
