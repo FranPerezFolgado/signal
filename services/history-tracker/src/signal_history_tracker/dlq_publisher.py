@@ -7,10 +7,9 @@ _log = get_logger(__name__)
 
 
 class DlqPublisher:
-    DLQ_TOPIC = "history-tracker.dlq"
-
-    def __init__(self, producer: KafkaJsonProducer) -> None:
+    def __init__(self, producer: KafkaJsonProducer, dlq_topic: str = "history-tracker.dlq") -> None:
         self._producer = producer
+        self._dlq_topic = dlq_topic
 
     def publish(
         self,
@@ -25,7 +24,7 @@ class DlqPublisher:
             "failed_at": datetime.now(UTC).isoformat(),
         }
         try:
-            self._producer.produce(self.DLQ_TOPIC, message)
+            self._producer.produce(self._dlq_topic, message)
             self._producer.flush(timeout=5.0)
         except Exception as exc:
             _log.error("dlq_emit_failed", error_reason=error_reason, error=str(exc))
