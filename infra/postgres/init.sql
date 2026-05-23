@@ -2,17 +2,19 @@
 -- All DDL uses IF NOT EXISTS so the script is safe to re-run after partial init.
 
 CREATE TABLE IF NOT EXISTS listening_history (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  signal_id       TEXT NOT NULL UNIQUE,
-  artist          TEXT NOT NULL,
-  artist_id       TEXT,
-  title           TEXT NOT NULL,
-  genres          TEXT[],
-  played_at       TIMESTAMPTZ,
-  sources         TEXT[],
-  audio_features  JSONB,
-  popularity      INT,
-  created_at      TIMESTAMPTZ DEFAULT now()
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  signal_id          TEXT NOT NULL UNIQUE,
+  artist             TEXT NOT NULL,
+  artist_id          TEXT,
+  track_id           TEXT,
+  title              TEXT NOT NULL,
+  genres             TEXT[],
+  played_at          TIMESTAMPTZ,
+  sources            TEXT[],
+  artist_popularity  INT,
+  track_popularity   INT,
+  pending_enrichment BOOLEAN DEFAULT false,
+  created_at         TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_listening_history_artist ON listening_history(artist);
@@ -32,7 +34,7 @@ CREATE TABLE IF NOT EXISTS artists (
   last_explored_at TIMESTAMPTZ
 );
 
--- Unique artist identity: normalised name ensures idempotent upserts from normalizer
+-- Unique artist identity: normalised name ensures idempotent upserts from history-tracker
 CREATE UNIQUE INDEX IF NOT EXISTS idx_artists_name_lower ON artists (LOWER(name));
 
 CREATE TABLE IF NOT EXISTS artist_recommendations (
