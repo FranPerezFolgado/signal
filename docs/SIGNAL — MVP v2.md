@@ -192,11 +192,11 @@ flowchart TD
 
 ### Tareas
 
-- [ ] Crear repo `signal` en GitHub con estructura de monorepo
-- [ ] Escribir `CLAUDE.md` en la raíz con el contexto del sistema
-- [ ] `infra/docker-compose.yml` con Kafka + Zookeeper + Kafka UI + PostgreSQL
-- [ ] Verificar Kafka UI en `localhost:8080`
-- [ ] Crear schema inicial de PostgreSQL
+- [x] Crear repo `signal` en GitHub con estructura de monorepo
+- [x] Escribir `CLAUDE.md` en la raíz con el contexto del sistema
+- [x] `infra/docker-compose.yml` con Kafka (KRaft) + Kafka UI + PostgreSQL + dbmate (ADR-009)
+- [x] Verificar Kafka UI en `localhost:8080`
+- [x] Crear schema inicial de PostgreSQL
 
 ### Kafka UI en docker-compose
 
@@ -277,12 +277,12 @@ CREATE TABLE artist_recommendations (
 
 ### Tareas
 
-- [ ] Crear `services/lastfm-ingester/`
-- [ ] API key de Last.fm (gratuita)
-- [ ] Polling de `user.getRecentTracks` con paginación
-- [ ] Emitir a `raw.plays`
-- [ ] Checkpoint por timestamp: no re-emitir plays ya procesados
-- [ ] Flag `--full-history` para ingesta histórica con delay configurable entre páginas
+- [x] Crear `services/lastfm-ingester/`
+- [x] API key de Last.fm (gratuita)
+- [x] Polling de `user.getRecentTracks` con paginación
+- [x] Emitir a `raw.plays`
+- [x] Checkpoint por timestamp: no re-emitir plays ya procesados
+- [x] Flag `--full-history` para ingesta histórica con delay configurable entre páginas
 
 ### Schema `raw.plays`
 
@@ -423,11 +423,11 @@ GET /tracks/{spotify_track_id}
 
 ### Tareas
 
-- [ ] Crear `services/history-tracker/`
-- [ ] Consumir `tracks.enriched`
-- [ ] Upsert en `listening_history` por `signal_id`
-- [ ] Actualizar `play_count` en tabla `artists`
-- [ ] Emitir a `listening.history`
+- [x] Crear `services/history-tracker/`
+- [x] Consumir `tracks.enriched`
+- [x] Upsert en `listening_history` por `signal_id`
+- [x] Actualizar `play_count` en tabla `artists`
+- [x] Emitir a `listening.history`
 
 ### ✅ Validación
 
@@ -758,34 +758,36 @@ signal/
 
 ---
 
-## ADRs a escribir para el MVP v2
+## ADRs del MVP v2
 
-### 001 — Kafka sobre colas simples o llamadas directas
+✅ = escrito · ⬜ = pendiente
+
+### ✅ 001 — Kafka sobre colas simples o llamadas directas
 Múltiples consumers del mismo stream sin acoplamiento, replay para recalibrar el scorer sin re-ingestar, ritmos de ingesta distintos entre lastfm-ingester y artist-tracker.
 
-### 002 — PostgreSQL sobre NoSQL
+### ✅ 002 — PostgreSQL sobre NoSQL
 Los datos son relacionales con joins y agregaciones. JSONB cubre campos variables. El volumen no justifica solución distribuida. Neo4j solo si el grafo multi-salto lo requiere en el futuro.
 
-### 003 — Python para todos los servicios del MVP (Go en v3)
+### ✅ 003 — Python para todos los servicios del MVP (Go en v3)
 SDKs maduros en Python, velocidad de desarrollo en MVP. El novelty-detector es el candidato natural para Go: lógica acotada, set membership, sin ORM.
 
-### 004 — Estrategia de enriquecimiento: Spotify → Last.fm → pending
-Cadena de fallback en vez de descartar. Perder tracks underground sería perder exactamente la señal más valiosa para curación editorial.
+### ✅ 004 — Estrategia de enriquecimiento: Spotify → Last.fm → pending
+Cadena de fallback en vez de descartar. Perder tracks underground sería perder exactamente la señal más valiosa para curación editorial. Actualizado en ADR-007: el enricher, no el normalizer, es el propietario de esta cadena.
 
-### 005 — Artista como objeto principal, track como señal
-El objetivo es publicar sobre artistas, no sobre canciones. Los tracks aportan géneros y popularidad. Simplifica el ciclo de vida a una sola máquina de estados.
+### ✅ 005 — Dead Letter Queue pattern
+Mensajes que no pueden procesarse se publican en un topic DLQ (`history-tracker.dlq`) para inspección y reintento manual, en lugar de ser descartados silenciosamente.
 
-### 006 — Clasificación inicial: Spotify follows + plays
+### ⬜ 006 — Clasificación inicial: Spotify follows + plays
 Por qué no fecha de corte (arbitraria y frágil). Por qué no onboarding manual completo (fricción excesiva). El gesto de "seguir en Spotify" es la señal más limpia de interés editorial.
 
-### 007 — Separación de normalizer y enricher ⭐
+### ✅ 007 — Separación de normalizer y enricher ⭐
 **Contexto real**: en la v1 el normalizer llamaba a Spotify durante el procesado del mensaje de Kafka. El `max.poll.interval.ms` (300s) se excedió por 423ms, Kafka expulsó al consumer, y se acumularon 61.436 mensajes de lag.
 
 **Decisión**: separar en dos servicios. El normalizer solo normaliza y resuelve IDs (timeout corto, sin reintentos). El enricher gestiona la dependencia de Spotify con rate limiter, circuit breaker y backoff.
 
 **Alternativa descartada**: aumentar `max.poll.interval.ms`. Habría ocultado el problema sin resolverlo — el normalizer seguiría siendo frágil ante cualquier lentitud de Spotify.
 
-### 008 — Eliminación de audio features y reformulación del scorer ⭐
+### ✅ 008 — Eliminación de audio features y reformulación del scorer ⭐
 **Contexto real**: Spotify deprecó `/v1/audio-features` en noviembre 2024 para apps nuevas. El 100% de las llamadas devuelven 403. No hay endpoint equivalente disponible.
 
 **Decisión**: eliminar `audio_distance` de la fórmula. Reformular con dos factores: `genre_novelty_ratio` (w1=0.6) y `popularity_norm` (w2=0.4). Aumentar el peso de género para compensar.
@@ -793,6 +795,13 @@ Por qué no fecha de corte (arbitraria y frágil). Por qué no onboarding manual
 **Alternativas evaluadas**: Cyanite (de pago), getsongbpm.com (solo BPM/tonalidad), scraping (inestable). Ninguna justifica una dependencia de terceros para un factor secundario.
 
 **Trade-off aceptado**: menor granularidad sobre el "sonido" del track. A cambio, sistema más simple, sin dependencias externas de pago, y los dos factores disponibles son suficientes para curación editorial.
+
+### ✅ 009 — dbmate como herramienta de migraciones de schema
+**Contexto**: `init.sql` solo se ejecuta en volúmenes vacíos. El MVP v2 requirió tres cambios de schema en una base de datos existente (drop `audio_features`, rename `popularity` → `artist_popularity`, add `track_popularity` y `pending_enrichment`).
+
+**Decisión**: dbmate ejecutado como servicio one-shot en docker-compose con `--wait up`. Migraciones en `infra/postgres/migrations/`. `init.sql` mantiene el schema final para instalaciones limpias; las migraciones cubren upgrades in-place.
+
+**Alternativas descartadas**: Alembic (requiere ORM/modelos para un proyecto sin ORM), Flyway/Liquibase (JVM, overhead innecesario), scripts SQL manuales (no trackeados, no idempotentes).
 
 ---
 
@@ -806,7 +815,7 @@ Por qué no fecha de corte (arbitraria y frágil). Por qué no onboarding manual
 | Scorer adaptado a API real | Reformulated scoring engine after Spotify deprecated audio features; designed a 2-factor model (genre novelty + underground factor) using only available API endpoints, documented as ADR |
 | Enriquecimiento con fallback | Built enrichment fallback chain (Spotify → Last.fm tags → pending flag) preserving underground tracks not indexed by Spotify |
 | Clasificación de artistas | Designed artist lifecycle state machine with automatic promotion via play-count thresholds and Spotify follow signal |
-| Decisiones documentadas | Documented 8 ADRs including two driven by real production failures, demonstrating iterative architectural decision-making |
+| Decisiones documentadas | Documented 9 ADRs including two driven by real production failures (MAXPOLL bug, Spotify API deprecation), demonstrating iterative architectural decision-making |
 
 ### Cómo presentarlo en entrevista
 
