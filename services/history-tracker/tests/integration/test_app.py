@@ -51,6 +51,13 @@ def _get_play_count(conn: psycopg.Connection, artist_name: str) -> int | None:
         return row[0] if row else None
 
 
+def _get_scrobble_count(conn: psycopg.Connection, artist_name: str) -> int | None:
+    with conn.cursor() as cur:
+        cur.execute("SELECT scrobble_count FROM artists WHERE LOWER(name) = LOWER(%s)", (artist_name,))
+        row = cur.fetchone()
+        return row[0] if row else None
+
+
 def _make_consumer(group_suffix: str) -> KConsumer:
     return KConsumer({
         "bootstrap.servers": BOOTSTRAP_SERVERS,
@@ -98,7 +105,8 @@ def test_happy_path_persists_row_and_increments_play_count(db):
         "processed_at": "2026-05-21T10:00:01+00:00",
     }
 
-    before_count = _get_play_count(db, "Radiohead") or 0
+    before_play = _get_play_count(db, "Radiohead") or 0
+    before_scrobble = _get_scrobble_count(db, "Radiohead") or 0
     _produce(INPUT_TOPIC, msg, key=signal_id)
 
     row = _wait_for_row(db, signal_id)
@@ -107,12 +115,14 @@ def test_happy_path_persists_row_and_increments_play_count(db):
     assert row["title"] == "Karma Police"
     assert row["signal_id"] == signal_id
 
-    after_count = _get_play_count(db, "Radiohead") or 0
-    assert after_count == before_count + 1
+    after_play = _get_play_count(db, "Radiohead") or 0
+    after_scrobble = _get_scrobble_count(db, "Radiohead") or 0
+    assert after_play == before_play + 1
+    assert after_scrobble == before_scrobble + 1
 
 
 @pytest.mark.integration
-def test_idempotency_no_double_insert_or_double_count(db):
+def test_repeat_play_increments_scrobble_not_play_count(db):
     signal_id = _make_signal_id()
     msg = {
         "signal_id": signal_id,
@@ -130,27 +140,28 @@ def test_idempotency_no_double_insert_or_double_count(db):
         "processed_at": "2026-05-21T11:00:01+00:00",
     }
 
+    # First delivery: new track — both counts increment.
     _produce(INPUT_TOPIC, msg, key=signal_id)
     _wait_for_row(db, signal_id)
+    before_play = _get_play_count(db, "Radiohead") or 0
+    before_scrobble = _get_scrobble_count(db, "Radiohead") or 0
 
-    before_count = _get_play_count(db, "Radiohead") or 0
+    # Second delivery: same signal_id — play_count must NOT increment, scrobble_count MUST.
     _produce(INPUT_TOPIC, msg, key=signal_id)
 
-    # Poll until play_count changes (bug) or 8s elapse (expected: no change).
-    # Exits early on failure so the test is fast when the bug manifests.
     deadline = time.monotonic() + 8.0
     while time.monotonic() < deadline:
-        if (_get_play_count(db, "Radiohead") or 0) != before_count:
+        if (_get_scrobble_count(db, "Radiohead") or 0) > before_scrobble:
             break
         time.sleep(0.3)
 
     with db.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM listening_history WHERE signal_id = %s", (signal_id,))
         count = cur.fetchone()[0]
-    assert count == 1, f"Expected 1 row, got {count}"
+    assert count == 1, f"Expected 1 row in listening_history, got {count}"
 
-    after_count = _get_play_count(db, "Radiohead") or 0
-    assert after_count == before_count, "play_count was incremented on re-delivery"
+    assert (_get_play_count(db, "Radiohead") or 0) == before_play, "play_count must not increment on repeat"
+    assert (_get_scrobble_count(db, "Radiohead") or 0) == before_scrobble + 1, "scrobble_count must increment on repeat"
 
 
 @pytest.mark.integration

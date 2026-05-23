@@ -55,11 +55,25 @@ def test_upsert_sql_uses_case_insensitive_conflict(repo):
     assert "LOWER(name)" in executed_sql
 
 
-def test_upsert_increments_play_count(repo):
+def test_upsert_new_track_sets_play_delta_1(repo):
     conn = _make_conn(("id1", False))
-    repo.upsert(conn, _sample_msg())
+    repo.upsert(conn, _sample_msg(), new_track=True)
+    params = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][1]
+    assert params["play_delta"] == 1
+
+
+def test_upsert_repeat_play_sets_play_delta_0(repo):
+    conn = _make_conn(("id1", False))
+    repo.upsert(conn, _sample_msg(), new_track=False)
+    params = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][1]
+    assert params["play_delta"] == 0
+
+
+def test_upsert_always_increments_scrobble_count(repo):
+    conn = _make_conn(("id1", False))
+    repo.upsert(conn, _sample_msg(), new_track=False)
     executed_sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
-    assert "play_count + 1" in executed_sql
+    assert "scrobble_count + 1" in executed_sql
 
 
 def test_upsert_coerces_empty_genres_to_none(repo):
