@@ -1,0 +1,95 @@
+<svg width="100%" viewBox="0 0 640 690" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Signal MVP — implemented pipeline data flow</title>
+  <desc>End-to-end data flow for the Signal MVP: Last.fm scrobbles are ingested, normalised, enriched, then split between history-tracker (persistence) and novelty-detector (novelty analysis).</desc>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>text { font-family: sans-serif; }</style>
+  </defs>
+  <rect width="640" height="690" fill="#ffffff"/>
+
+  <!-- LEGEND -->
+  <rect x="20" y="10" width="12" height="12" rx="2" fill="#0F6E56"/>
+  <text x="38" y="21" font-size="11" fill="#888780">Service</text>
+  <rect x="104" y="10" width="12" height="12" rx="2" fill="#534AB7"/>
+  <text x="122" y="21" font-size="11" fill="#888780">Kafka topic</text>
+  <rect x="220" y="10" width="12" height="12" rx="2" fill="#185FA5"/>
+  <text x="238" y="21" font-size="11" fill="#888780">PostgreSQL</text>
+  <line x1="318" y1="16" x2="348" y2="16" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <text x="354" y="21" font-size="11" fill="#888780">secondary write</text>
+
+  <!-- ROW 1: lastfm-ingester -->
+  <rect x="190" y="50" width="220" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="300" y="69" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">lastfm-ingester</text>
+  <text x="300" y="85" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · polls Last.fm API</text>
+
+  <line x1="300" y1="94" x2="300" y2="128" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ROW 2: raw.plays -->
+  <rect x="190" y="128" width="220" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="300" y="147" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">raw.plays</text>
+  <text x="300" y="163" text-anchor="middle" font-size="11" fill="#AFA9EC">scrobbles · 3 partitions</text>
+
+  <line x1="300" y1="172" x2="300" y2="206" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ROW 3: normalizer -->
+  <rect x="190" y="206" width="220" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="300" y="225" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">normalizer</text>
+  <text x="300" y="241" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · Spotify ID resolution</text>
+
+  <line x1="300" y1="250" x2="300" y2="284" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ROW 4: tracks.normalized -->
+  <rect x="190" y="284" width="220" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="300" y="303" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">tracks.normalized</text>
+  <text x="300" y="319" text-anchor="middle" font-size="11" fill="#AFA9EC">unified schema · signal_id keyed</text>
+
+  <line x1="300" y1="328" x2="300" y2="362" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ROW 5: enricher -->
+  <rect x="190" y="362" width="220" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="300" y="381" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">enricher</text>
+  <text x="300" y="397" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · genres + popularity</text>
+
+  <line x1="300" y1="406" x2="300" y2="440" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ROW 6: tracks.enriched -->
+  <rect x="190" y="440" width="220" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="300" y="459" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">tracks.enriched</text>
+  <text x="300" y="475" text-anchor="middle" font-size="11" fill="#AFA9EC">genres · popularity · enrichment flags</text>
+
+  <!-- Fork: tracks.enriched → history-tracker + novelty-detector -->
+  <path d="M300,484 L300,504 L140,504 L140,516" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+  <path d="M300,484 L300,504 L460,504 L460,516" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ROW 7: history-tracker (left) | novelty-detector (right) -->
+  <rect x="45" y="516" width="190" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="140" y="535" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">history-tracker</text>
+  <text x="140" y="551" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · persists listening history</text>
+
+  <rect x="365" y="516" width="195" height="44" rx="7" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+  <text x="462" y="535" text-anchor="middle" font-size="13" font-weight="500" fill="#E1F5EE">novelty-detector</text>
+  <text x="462" y="551" text-anchor="middle" font-size="11" fill="#9FE1CB">Python · detects new artists/genres</text>
+
+  <!-- Secondary writes to PostgreSQL (dashed) -->
+  <rect x="588" y="516" width="44" height="128" rx="6" fill="#185FA5" stroke="#0C447C" stroke-width="0.5"/>
+  <text x="610" y="578" text-anchor="middle" font-size="9" font-weight="500" fill="#E6F1FB" writing-mode="tb">PostgreSQL</text>
+
+  <path d="M235,538 L588,538" fill="none" stroke="#185FA5" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <path d="M560,556 L588,556" fill="none" stroke="#185FA5" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+
+  <!-- history-tracker → listening.history -->
+  <line x1="140" y1="560" x2="140" y2="600" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+  <!-- novelty-detector → tracks.novel -->
+  <line x1="462" y1="560" x2="462" y2="600" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ROW 8: listening.history (left) | tracks.novel (right) -->
+  <rect x="45" y="600" width="190" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="140" y="619" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">listening.history</text>
+  <text x="140" y="635" text-anchor="middle" font-size="11" fill="#AFA9EC">source of truth for novelty</text>
+
+  <rect x="365" y="600" width="195" height="44" rx="7" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+  <text x="462" y="619" text-anchor="middle" font-size="13" font-weight="500" fill="#EEEDFE">tracks.novel</text>
+  <text x="462" y="635" text-anchor="middle" font-size="11" fill="#AFA9EC">novelty signals · scorer input</text>
+</svg>
