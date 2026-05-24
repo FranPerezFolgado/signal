@@ -1,0 +1,170 @@
+import signal
+
+import psycopg
+
+from signal_common.kafka_consumer import KafkaJsonConsumer
+from signal_common.kafka_producer import KafkaJsonProducer
+from signal_common.logger import get_logger
+
+from signal_novelty_detector.artist_repository import ArtistRepository
+from signal_novelty_detector.dlq_publisher import DlqPublisher
+from signal_novelty_detector.novelty_repository import NoveltyRepository
+from signal_novelty_detector.settings import Settings
+
+_INPUT_TOPIC = "tracks.enriched"
+_OUTPUT_TOPIC = "tracks.novel"
+_CLIENT_ID = "novelty-detector"
+
+_log = get_logger(__name__)
+
+
+def _is_valid(msg: dict) -> bool:
+    return (
+        isinstance(msg.get("signal_id"), str)
+        and isinstance(msg.get("artist"), str)
+        and isinstance(msg.get("title"), str)
+        and "pending_enrichment" in msg
+    )
+
+
+def run_consumer(settings: Settings) -> None:
+    consumer = KafkaJsonConsumer(
+        settings.kafka_bootstrap_servers,
+        settings.kafka_consumer_group,
+        _CLIENT_ID,
+    )
+    output_producer = KafkaJsonProducer(settings.kafka_bootstrap_servers, client_id=_CLIENT_ID)
+    dlq_producer = KafkaJsonProducer(
+        settings.kafka_bootstrap_servers, client_id=f"{_CLIENT_ID}-dlq"
+    )
+
+    novelty_repo = NoveltyRepository()
+    artist_repo = ArtistRepository()
+    dlq = DlqPublisher(dlq_producer)
+
+    processed = 0
+    skipped_pending = 0
+    failed_dlq = 0
+
+    stop = False
+
+    def _handle_signal(sig: int, _frame: object) -> None:
+        nonlocal stop
+        _log.info("shutdown_requested", signal=sig)
+        stop = True
+
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
+
+    consumer.subscribe([_INPUT_TOPIC])
+    _log.info("novelty_detector_started")
+
+    try:
+        while not stop:
+            msg = consumer.poll(timeout=1.0)
+            if msg is None:
+                continue
+
+            if not _is_valid(msg):
+                dlq.publish(
+                    error_reason="malformed_message",
+                    error_detail="missing required fields: signal_id, artist, title, or pending_enrichment",
+                    original_payload=msg,
+                )
+                failed_dlq += 1
+                consumer.commit()
+                continue
+
+            if msg["pending_enrichment"]:
+                _log.debug("skipping_pending_enrichment", signal_id=str(msg["signal_id"])[:8])
+                skipped_pending += 1
+                consumer.commit()
+                continue
+
+            signal_id: str = msg["signal_id"]
+            artist: str = msg["artist"]
+            genres: list[str] = msg.get("genres") or []
+
+            try:
+                with psycopg.connect(settings.database_url) as conn:
+                    artist_row = artist_repo.get(conn, artist)
+                    if artist_row is None:
+                        dlq.publish(
+                            error_reason="artist record missing",
+                            error_detail=f"no artists row for '{artist}'",
+                            original_payload=msg,
+                        )
+                        failed_dlq += 1
+                        consumer.commit()
+                        continue
+
+                    artist_is_new = novelty_repo.is_artist_new(conn, artist, signal_id)
+                    new_genres = novelty_repo.get_new_genres(conn, genres, signal_id)
+                    track_is_new = novelty_repo.is_track_new(conn, signal_id)
+                    known_genres = [g for g in genres if g not in new_genres]
+                    genre_novelty_ratio = len(new_genres) / len(genres) if genres else 0.0
+
+                    # Auto-promotion (best-effort; failure does not DLQ or block the event)
+                    if (
+                        artist_row["status"] == "TRACKED"
+                        and artist_row["scrobble_count"] >= settings.auto_follow_plays
+                    ):
+                        try:
+                            if artist_repo.promote_to_following(conn, artist, settings.auto_follow_plays):
+                                _log.info(
+                                    "artist_promoted",
+                                    artist=artist,
+                                    scrobble_count=artist_row["scrobble_count"],
+                                )
+                        except Exception as exc:
+                            _log.warning("auto_promotion_failed", artist=artist, error=str(exc))
+
+                    if not (artist_is_new or new_genres):
+                        consumer.commit()
+                        continue
+
+                    novel_event = {
+                        "signal_id": signal_id,
+                        "artist": artist,
+                        "artist_id": msg.get("artist_id"),
+                        "genres": genres,
+                        "artist_popularity": msg.get("artist_popularity"),
+                        "track_popularity": msg.get("track_popularity"),
+                        "played_at": msg.get("played_at"),
+                        "novelty_signals": {
+                            "track_is_new": track_is_new,
+                            "artist_is_new": artist_is_new,
+                            "new_genres": new_genres,
+                            "known_genres": known_genres,
+                            "genre_novelty_ratio": genre_novelty_ratio,
+                        },
+                    }
+
+                    output_producer.produce(_OUTPUT_TOPIC, novel_event, key=signal_id)
+                    unflushed = output_producer.flush(timeout=10.0)
+                    if unflushed > 0:
+                        _log.error("kafka_flush_timeout", signal_id=signal_id[:8])
+                        consumer.commit()
+                        continue
+
+            except Exception as exc:
+                _log.error("processing_error", signal_id=signal_id[:8], error=str(exc))
+                dlq.publish(
+                    error_reason="processing_error",
+                    error_detail="database error",
+                    original_payload=msg,
+                )
+                failed_dlq += 1
+                consumer.commit()
+                continue
+
+            processed += 1
+            consumer.commit()
+
+    finally:
+        _log.info(
+            "novelty_detector_stopped",
+            processed=processed,
+            skipped_pending=skipped_pending,
+            failed_dlq=failed_dlq,
+        )
