@@ -2,7 +2,7 @@
 
 COMPOSE = docker compose -f infra/docker-compose.yml
 
-.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs
+.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs onboarding
 
 ## Arranca Kafka + Zookeeper + PostgreSQL (y crea los topics)
 up:
@@ -76,6 +76,12 @@ qmd-reindex:
 qmd-status:
 	@qmd status
 
+# ─── onboarding ───────────────────────────────────────────────────────────────
+
+## Clasifica artistas: Spotify follows → FOLLOWING, plays ≥ umbral → high_priority (one-shot)
+onboarding:
+	@uv run scripts/onboarding.py
+
 # ─── lastfm-ingester ──────────────────────────────────────────────────────────
 # ingester-backfill / ingester-poll: run locally via uv (fast iteration, no Docker)
 # ingester-up / ingester-logs: run via Docker Compose (full-stack integration)
@@ -143,6 +149,22 @@ enricher-logs:
 ## Para y elimina el contenedor del enricher
 enricher-down:
 	@$(COMPOSE) stop enricher && $(COMPOSE) rm -f enricher
+
+# ─── novelty-detector ─────────────────────────────────────────────────────────
+
+.PHONY: novelty-detector-up novelty-detector-logs novelty-detector-down
+
+## Arranca el novelty-detector como contenedor Docker en background
+novelty-detector-up:
+	@$(COMPOSE) --profile services up -d --build novelty-detector
+
+## Muestra los logs del novelty-detector (Ctrl+C para salir)
+novelty-detector-logs:
+	@docker logs -f signal-novelty-detector
+
+## Para y elimina el contenedor del novelty-detector
+novelty-detector-down:
+	@$(COMPOSE) stop novelty-detector && $(COMPOSE) rm -f novelty-detector
 
 # ─── all pipeline services ────────────────────────────────────────────────────
 
