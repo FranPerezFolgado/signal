@@ -1,6 +1,6 @@
 import time
 
-from signal_enricher.circuit_breaker import CircuitBreaker, State
+from signal_common.circuit_breaker import CircuitBreaker, State
 
 
 class TestCircuitBreaker:

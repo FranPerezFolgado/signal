@@ -1,100 +1,14 @@
-import time
+from signal_common.spotify import BaseSpotifyClient, SpotifyAuthError, SpotifyServiceError  # noqa: F401
 
-import requests
-
-from signal_common.logger import get_logger
-
-_log = get_logger(__name__)
-
-_TOKEN_URL = "https://accounts.spotify.com/api/token"
 _API_BASE = "https://api.spotify.com/v1"
 
 
-class SpotifyAuthError(Exception):
-    pass
-
-
-class SpotifyClient:
-    def __init__(
-        self,
-        client_id: str,
-        client_secret: str,
-        refresh_token: str,
-        timeout: float = 2.0,
-    ) -> None:
-        self._client_id = client_id
-        self._client_secret = client_secret
-        self._refresh_token = refresh_token
-        self._timeout = timeout
-        self._access_token: str = ""
-
-    def _refresh_access_token(self) -> None:
-        resp = requests.post(
-            _TOKEN_URL,
-            data={"grant_type": "refresh_token", "refresh_token": self._refresh_token},
-            auth=(self._client_id, self._client_secret),
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            raise SpotifyAuthError(f"Token refresh failed with status {resp.status_code}")
-        self._access_token = resp.json()["access_token"]
-        _log.info("spotify_token_refreshed")
-
-    def _get(self, url: str, params: dict | None = None) -> dict | None:
-        if not self._access_token:
-            try:
-                self._refresh_access_token()
-            except SpotifyAuthError as exc:
-                _log.error("spotify_token_unavailable", error=str(exc))
-                return None
-
-        token_refreshed = False
-        try:
-            resp = requests.get(
-                url,
-                headers={"Authorization": f"Bearer {self._access_token}"},
-                params=params,
-                timeout=self._timeout,
-            )
-        except requests.Timeout:
-            _log.warning("spotify_search_timeout", url=url)
-            return None
-        except requests.RequestException as exc:
-            _log.warning("spotify_request_error", error=str(exc))
-            return None
-
-        if resp.status_code == 200:
-            return resp.json()
-
-        if resp.status_code == 401 and not token_refreshed:
-            _log.warning("spotify_401_refreshing_token")
-            try:
-                self._refresh_access_token()
-                token_refreshed = True
-            except SpotifyAuthError as exc:
-                _log.error("spotify_token_refresh_failed", error=str(exc))
-                return None
-            try:
-                resp = requests.get(
-                    url,
-                    headers={"Authorization": f"Bearer {self._access_token}"},
-                    params=params,
-                    timeout=self._timeout,
-                )
-                if resp.status_code == 200:
-                    return resp.json()
-            except requests.RequestException:
-                return None
-
-        _log.warning("spotify_non_200", status=resp.status_code, url=url)
-        return None
-
+class SpotifyClient(BaseSpotifyClient):
     def search_track(self, artist: str, title: str) -> tuple[str | None, str | None]:
-        """Return (artist_id_uri, track_id_uri) or (None, None) on failure."""
+        """Return (artist_id_uri, track_id_uri) or (None, None) when not found.
+        Raises SpotifyServiceError on transport/auth/rate-limit failures."""
         query = f"track:{title} artist:{artist}"
         data = self._get(f"{_API_BASE}/search", params={"q": query, "type": "track", "limit": 1})
-        if not data:
-            return None, None
         items = data.get("tracks", {}).get("items", [])
         if not items:
             return None, None
