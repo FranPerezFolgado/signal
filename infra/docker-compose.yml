@@ -59,7 +59,7 @@ services:
       echo 'Topics creados:'
       kafka-topics --bootstrap-server kafka:29092 --list
       "
-    restart: on-failure
+    restart: "no"
 
   # ─── DB migrations (dbmate) ──────────────────────────────────────────────────
   migrate:
@@ -73,7 +73,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    restart: on-failure
+    restart: "no"
 
   # ─── PostgreSQL ───────────────────────────────────────────────────────────────
   postgres:
