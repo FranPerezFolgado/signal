@@ -2,20 +2,20 @@ import signal as _signal
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from signal_novelty_detector.app import _is_valid
-
 
 # ─── _is_valid ────────────────────────────────────────────────────────────────
 
 class TestIsValid:
     def test_valid_message(self):
-        msg = {"signal_id": "abc", "artist": "Actress", "title": "Ascending", "pending_enrichment": False}
+        msg = {"signal_id": "abc", "artist": "Actress", "title": "Ascending",
+               "pending_enrichment": False}
         assert _is_valid(msg) is True
 
     def test_pending_enrichment_true_still_valid(self):
         # _is_valid accepts it; the loop skips it separately
-        msg = {"signal_id": "abc", "artist": "Actress", "title": "Ascending", "pending_enrichment": True}
+        msg = {"signal_id": "abc", "artist": "Actress", "title": "Ascending",
+               "pending_enrichment": True}
         assert _is_valid(msg) is True
 
     def test_missing_signal_id(self):
@@ -23,7 +23,8 @@ class TestIsValid:
         assert _is_valid(msg) is False
 
     def test_signal_id_not_string(self):
-        msg = {"signal_id": 123, "artist": "Actress", "title": "Ascending", "pending_enrichment": False}
+        msg = {"signal_id": 123, "artist": "Actress", "title": "Ascending",
+               "pending_enrichment": False}
         assert _is_valid(msg) is False
 
     def test_missing_artist(self):

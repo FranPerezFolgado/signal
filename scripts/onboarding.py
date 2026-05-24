@@ -86,10 +86,17 @@ def _get_followed_artist_names(access_token: str) -> set[str]:
             timeout=10,
         )
         if resp.status_code == 401:
-            print("[error] Spotify returned 401 — check that your refresh token has 'user-follow-read' scope.", file=sys.stderr)
+            print(
+                "[error] Spotify returned 401 — check that your refresh token"
+                " has 'user-follow-read' scope.",
+                file=sys.stderr,
+            )
             sys.exit(1)
         if resp.status_code != 200:
-            print(f"[error] Spotify /me/following returned HTTP {resp.status_code}", file=sys.stderr)
+            print(
+                f"[error] Spotify /me/following returned HTTP {resp.status_code}",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         data = resp.json().get("artists", {})
@@ -199,7 +206,10 @@ def main() -> None:
     print("Results")
     print("-" * 40)
     print(f"  Artists promoted to FOLLOWING : {promoted}")
-    print(f"  Artists marked high_priority  : {high_priority_marked}  (scrobble_count >= {min_plays})")
+    print(
+        f"  Artists marked high_priority  : {high_priority_marked}"
+        f"  (scrobble_count >= {min_plays})"
+    )
     print()
     print("Artist distribution after onboarding:")
     for status, count in after.items():

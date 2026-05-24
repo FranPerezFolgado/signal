@@ -1,6 +1,4 @@
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from signal_novelty_detector.novelty_repository import NoveltyRepository
 

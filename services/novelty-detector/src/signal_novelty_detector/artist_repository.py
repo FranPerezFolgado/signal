@@ -1,9 +1,5 @@
 import psycopg
 
-from signal_common.logger import get_logger
-
-_log = get_logger(__name__)
-
 _GET_ARTIST_SQL = """
 SELECT id, status, scrobble_count
 FROM artists
@@ -29,7 +25,9 @@ class ArtistRepository:
                 return None
             return {"id": row[0], "status": row[1], "scrobble_count": row[2]}
 
-    def promote_to_following(self, conn: psycopg.Connection, artist: str, min_scrobbles: int) -> bool:
+    def promote_to_following(
+        self, conn: psycopg.Connection, artist: str, min_scrobbles: int
+    ) -> bool:
         with conn.cursor() as cur:
             cur.execute(_PROMOTE_SQL, (artist, min_scrobbles))
             return cur.fetchone() is not None

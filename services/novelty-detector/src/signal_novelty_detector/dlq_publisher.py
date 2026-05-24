@@ -7,7 +7,9 @@ _log = get_logger(__name__)
 
 
 class DlqPublisher:
-    def __init__(self, producer: KafkaJsonProducer, dlq_topic: str = "novelty-detector.dlq") -> None:
+    def __init__(
+        self, producer: KafkaJsonProducer, dlq_topic: str = "novelty-detector.dlq"
+    ) -> None:
         self._producer = producer
         self._dlq_topic = dlq_topic
 

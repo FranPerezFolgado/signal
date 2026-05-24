@@ -2,7 +2,6 @@ import signal
 
 import psycopg
 from psycopg import OperationalError as _PsycopgOperationalError
-
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
@@ -73,7 +72,7 @@ def run_consumer(settings: Settings) -> None:
                 if not _is_valid(msg):
                     dlq.publish(
                         error_reason="malformed_message",
-                        error_detail="missing required fields: signal_id, artist, title, or pending_enrichment",
+                        error_detail="invalid or missing required fields",
                         original_payload=msg,
                     )
                     failed_dlq += 1
@@ -108,13 +107,15 @@ def run_consumer(settings: Settings) -> None:
                     known_genres = [g for g in genres if g not in new_genres]
                     genre_novelty_ratio = len(new_genres) / len(genres) if genres else 0.0
 
-                    # Auto-promotion: best-effort; DB failure logs a warning and never blocks the event
+                    # Auto-promotion: best-effort; DB failure logs a warning, never blocks the event
                     if (
                         artist_row["status"] == "TRACKED"
                         and artist_row["scrobble_count"] >= settings.auto_follow_plays
                     ):
                         try:
-                            if artist_repo.promote_to_following(conn, artist, settings.auto_follow_plays):
+                            if artist_repo.promote_to_following(
+                                conn, artist, settings.auto_follow_plays
+                            ):
                                 _log.info(
                                     "artist_promoted",
                                     artist=artist,

@@ -1,9 +1,5 @@
 import psycopg
 
-from signal_common.logger import get_logger
-
-_log = get_logger(__name__)
-
 _ARTIST_IS_NEW_SQL = """
 SELECT NOT EXISTS (
     SELECT 1 FROM listening_history
@@ -38,7 +34,9 @@ class NoveltyRepository:
             row = cur.fetchone()
             return bool(row[0]) if row else True
 
-    def get_new_genres(self, conn: psycopg.Connection, genres: list[str], signal_id: str) -> list[str]:
+    def get_new_genres(
+        self, conn: psycopg.Connection, genres: list[str] | None, signal_id: str
+    ) -> list[str]:
         if not genres:
             return []
         with conn.cursor() as cur:
