@@ -4,6 +4,11 @@ from enum import Enum
 
 from signal_common.logger import get_logger
 
+
+class CircuitOpenError(RuntimeError):
+    """Raised when the circuit is open and the operation must not proceed."""
+    pass
+
 _log = get_logger(__name__)
 
 

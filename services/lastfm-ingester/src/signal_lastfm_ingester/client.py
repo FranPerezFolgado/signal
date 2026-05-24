@@ -48,10 +48,10 @@ class LastfmClient:
         return RecentTracksPage(tracks=tracks, page=page, total_pages=total_pages)
 
     def _get_with_retry(self, params: dict) -> dict:
+        if self._rate_limiter:
+            self._rate_limiter.acquire()
         delay = 1.0
         for attempt in range(_MAX_RETRIES):
-            if self._rate_limiter:
-                self._rate_limiter.acquire()
             response = requests.get(_BASE_URL, params=params, timeout=10)
             if response.status_code in (429, 500, 502, 503, 504):
                 if attempt < _MAX_RETRIES - 1:

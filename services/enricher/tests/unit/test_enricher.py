@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from signal_common.circuit_breaker import State
+from signal_common.spotify import SpotifyServiceError
 from signal_enricher.enricher import Enricher
 
 
@@ -67,9 +68,9 @@ class TestEnrich:
         assert result["genres"] == ["ambient", "electronic"]
         assert result["pending_enrichment"] is False
 
-    def test_pending_when_both_sources_fail(self):
+    def test_pending_when_spotify_fails_and_lastfm_empty(self):
         enricher = Enricher(_make_settings(lastfm_enabled=True))
-        enricher._spotify.get_artist_data = MagicMock(return_value=None)
+        enricher._spotify.get_artist_data = MagicMock(side_effect=SpotifyServiceError("5xx"))
         enricher._spotify.get_track_data = MagicMock(return_value=None)
         enricher._lastfm.get_tags = MagicMock(return_value=[])
 
@@ -110,9 +111,9 @@ class TestEnrich:
         assert result["genres"] == ["ambient"]
         assert result["pending_enrichment"] is False
 
-    def test_backoff_retries_on_partial_failure(self):
+    def test_backoff_retries_on_spotify_service_error(self):
         enricher = Enricher(_make_settings(lastfm_enabled=False))
-        enricher._spotify.get_artist_data = MagicMock(return_value=None)
+        enricher._spotify.get_artist_data = MagicMock(side_effect=SpotifyServiceError("timeout"))
         enricher._spotify.get_track_data = MagicMock(return_value=None)
 
         enricher.enrich(_normalized())

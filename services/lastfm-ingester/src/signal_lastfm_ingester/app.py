@@ -1,8 +1,9 @@
 import signal
 import time
+from datetime import UTC, datetime
 
 from signal_common.checkpoint import CheckpointRepository
-from signal_common.circuit_breaker import CircuitBreaker
+from signal_common.circuit_breaker import CircuitBreaker, CircuitOpenError
 from signal_common.db import get_connection
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
@@ -74,7 +75,6 @@ def run_polling(settings: Settings) -> None:
 
                     if emitted > 0:
                         _log.info("poll_done", emitted=emitted)
-                        from datetime import UTC, datetime
                         repo.upsert(_SERVICE, datetime.now(tz=UTC))
 
                 circuit_breaker.record_success()
@@ -103,7 +103,7 @@ def run_backfill(settings: Settings) -> None:
 
     while True:
         if not circuit_breaker.should_allow():
-            raise RuntimeError("circuit open — retry backfill when Last.fm recovers")
+            raise CircuitOpenError("circuit open — retry backfill when Last.fm recovers")
         try:
             emitted, total_pages = _ingest_page(client, producer, from_uts=None, page=page)
             circuit_breaker.record_success()
@@ -117,8 +117,6 @@ def run_backfill(settings: Settings) -> None:
         if page >= total_pages:
             break
         page += 1
-
-    from datetime import UTC, datetime
 
     with get_connection(settings.database_url) as conn:
         CheckpointRepository(conn).upsert(_SERVICE, datetime.now(tz=UTC))

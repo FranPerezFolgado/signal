@@ -6,6 +6,7 @@ from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
 from signal_common.rate_limiter import RateLimiter
+from signal_common.spotify import SpotifyServiceError
 
 from signal_normalizer.settings import Settings
 from signal_normalizer.signal_id import compute_signal_id
@@ -98,11 +99,12 @@ def run_consumer(settings: Settings) -> None:
             signal_id = compute_signal_id(artist, title)
 
             if circuit_breaker.should_allow():
-                artist_id, track_id = spotify.search_track(artist, title)
-                if artist_id is not None:
+                try:
+                    artist_id, track_id = spotify.search_track(artist, title)
                     circuit_breaker.record_success()
-                else:
+                except SpotifyServiceError:
                     circuit_breaker.record_failure()
+                    artist_id, track_id = None, None
             else:
                 _log.warning("circuit_open_skipping_spotify", artist=artist)
                 artist_id, track_id = None, None
