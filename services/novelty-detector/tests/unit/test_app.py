@@ -38,6 +38,21 @@ class TestIsValid:
         msg = {"signal_id": "abc", "artist": "Actress", "title": "Ascending"}
         assert _is_valid(msg) is False
 
+    def test_genres_non_list_is_invalid(self):
+        msg = {"signal_id": "abc", "artist": "Actress", "title": "Ascending",
+               "pending_enrichment": False, "genres": "rock"}
+        assert _is_valid(msg) is False
+
+    def test_genres_none_is_valid(self):
+        msg = {"signal_id": "abc", "artist": "Actress", "title": "Ascending",
+               "pending_enrichment": False, "genres": None}
+        assert _is_valid(msg) is True
+
+    def test_genres_list_is_valid(self):
+        msg = {"signal_id": "abc", "artist": "Actress", "title": "Ascending",
+               "pending_enrichment": False, "genres": ["electronic"]}
+        assert _is_valid(msg) is True
+
 
 # ─── Consumer loop helpers ─────────────────────────────────────────────────────
 
@@ -68,7 +83,7 @@ def _build_msg(signal_id="sig-abc", artist="Actress", title="Ascending",
 
 
 def _run_loop(msg, *, artist_row=None, artist_is_new=True, new_genres=None,
-              track_is_new=True, auto_follow_plays=3):
+              track_is_new=True, auto_follow_plays=3, promotion_side_effect=None):
     """Run the consumer loop with a single message then stop via SIGTERM handler."""
     settings = _make_settings(auto_follow_plays)
 
@@ -108,7 +123,10 @@ def _run_loop(msg, *, artist_row=None, artist_is_new=True, new_genres=None,
         # Wire artist repo
         artist_repo = MockArtistRepo.return_value
         artist_repo.get.return_value = artist_row
-        artist_repo.promote_to_following.return_value = False
+        if promotion_side_effect is not None:
+            artist_repo.promote_to_following.side_effect = promotion_side_effect
+        else:
+            artist_repo.promote_to_following.return_value = False
 
         # Wire producers
         output_producer = MagicMock()
@@ -150,6 +168,10 @@ class TestPendingEnrichmentSkip:
         _, _, _, _, consumer = _run_loop(_build_msg(pending=True))
         consumer.commit.assert_called()
 
+    def test_consumer_closed_on_shutdown(self):
+        _, _, _, _, consumer = _run_loop(_build_msg(pending=True))
+        consumer.close.assert_called_once()
+
 
 class TestMalformedMessage:
     def test_goes_to_dlq(self):
@@ -164,6 +186,12 @@ class TestMalformedMessage:
         output_producer, *_ = _run_loop({"artist": "Actress"})
         output_producer.produce.assert_not_called()
 
+    def test_genres_as_string_goes_to_dlq(self):
+        msg = _build_msg()
+        msg["genres"] = "rock"
+        _, dlq, *_ = _run_loop(msg)
+        dlq.publish.assert_called_once()
+
 
 class TestMissingArtistRecord:
     def test_goes_to_dlq(self):
@@ -177,6 +205,13 @@ class TestMissingArtistRecord:
     def test_no_novelty_event_emitted(self):
         output_producer, *_ = _run_loop(_build_msg(), artist_row=None)
         output_producer.produce.assert_not_called()
+
+    def test_dlq_detail_does_not_contain_artist_name(self):
+        # Artist name from message is PII — must not appear in DLQ error_detail
+        msg = _build_msg(artist="Actress")
+        _, dlq, *_ = _run_loop(msg, artist_row=None)
+        detail = dlq.publish.call_args[1]["error_detail"]
+        assert "Actress" not in detail
 
 
 # ─── Consumer loop: novelty detection ─────────────────────────────────────────
@@ -271,10 +306,29 @@ class TestAutoPromotion:
 
     def test_promotion_db_failure_does_not_block_event(self):
         msg = _build_msg(genres=["electronic"])
+        output_producer, dlq, *_ = _run_loop(
+            msg,
+            artist_row=_make_artist_row(status="TRACKED", scrobble_count=5),
+            artist_is_new=True,
+            new_genres=["electronic"],
+            auto_follow_plays=3,
+            promotion_side_effect=Exception("db error"),
+        )
+        output_producer.produce.assert_called_once()
+        dlq.publish.assert_not_called()
+
+
+# ─── Consumer loop: Kafka flush failure ───────────────────────────────────────
+
+class TestFlushFailure:
+    def test_flush_timeout_does_not_commit_offset(self):
+        """Flush timeout must not commit the consumer offset — message must be redelivered."""
+        msg = _build_msg(genres=["electronic"])
+
         with (
             patch("signal_novelty_detector.app.KafkaJsonConsumer") as MockConsumer,
             patch("signal_novelty_detector.app.KafkaJsonProducer") as MockProducer,
-            patch("signal_novelty_detector.app.DlqPublisher") as MockDlq,
+            patch("signal_novelty_detector.app.DlqPublisher"),
             patch("signal_novelty_detector.app.NoveltyRepository") as MockNoveltyRepo,
             patch("signal_novelty_detector.app.ArtistRepository") as MockArtistRepo,
             patch("signal_novelty_detector.app.psycopg") as MockPsycopg,
@@ -295,17 +349,19 @@ class TestAutoPromotion:
                 return None
             consumer.poll.side_effect = poll_side_effect
 
-            novelty_repo = MockNoveltyRepo.return_value
-            novelty_repo.is_artist_new.return_value = True
-            novelty_repo.get_new_genres.return_value = ["electronic"]
-            novelty_repo.is_track_new.return_value = True
+            MockNoveltyRepo.return_value.is_artist_new.return_value = True
+            MockNoveltyRepo.return_value.get_new_genres.return_value = ["electronic"]
+            MockNoveltyRepo.return_value.is_track_new.return_value = True
+            MockArtistRepo.return_value.get.return_value = _make_artist_row()
 
-            artist_repo = MockArtistRepo.return_value
-            artist_repo.get.return_value = _make_artist_row(status="TRACKED", scrobble_count=5)
-            artist_repo.promote_to_following.side_effect = Exception("db error")
-
+            # First flush (message) times out; second flush (finally) succeeds
+            flush_calls = [0]
             output_producer = MagicMock()
-            output_producer.flush.return_value = 0
+            def flush_side_effect(timeout=10.0):
+                flush_calls[0] += 1
+                return 1 if flush_calls[0] == 1 else 0
+            output_producer.flush.side_effect = flush_side_effect
+
             producers = [output_producer, MagicMock()]
             idx = [0]
             def make_producer(*a, **kw):
@@ -322,4 +378,40 @@ class TestAutoPromotion:
             run_consumer(_make_settings())
 
             output_producer.produce.assert_called_once()
-            MockDlq.return_value.publish.assert_not_called()
+            consumer.commit.assert_not_called()
+
+
+# ─── Consumer loop: transient DB error ────────────────────────────────────────
+
+class TestOperationalError:
+    def test_db_operational_error_propagates(self):
+        """psycopg.OperationalError must not be swallowed — let Docker restart the service."""
+        import psycopg as _real_psycopg
+
+        msg = _build_msg()
+
+        with (
+            patch("signal_novelty_detector.app.KafkaJsonConsumer") as MockConsumer,
+            patch("signal_novelty_detector.app.KafkaJsonProducer"),
+            patch("signal_novelty_detector.app.DlqPublisher"),
+            patch("signal_novelty_detector.app.NoveltyRepository"),
+            patch("signal_novelty_detector.app.ArtistRepository") as MockArtistRepo,
+            patch("signal_novelty_detector.app.psycopg") as MockPsycopg,
+            patch("signal_novelty_detector.app.signal") as mock_sig_module,
+        ):
+            mock_sig_module.SIGTERM = _signal.SIGTERM
+            mock_sig_module.SIGINT = _signal.SIGINT
+            mock_sig_module.signal.side_effect = lambda sig, h: None
+
+            consumer = MockConsumer.return_value
+            consumer.poll.return_value = msg
+
+            MockArtistRepo.return_value.get.side_effect = _real_psycopg.OperationalError("db down")
+
+            conn = MagicMock()
+            MockPsycopg.connect.return_value.__enter__ = MagicMock(return_value=conn)
+            MockPsycopg.connect.return_value.__exit__ = MagicMock(return_value=False)
+
+            from signal_novelty_detector.app import run_consumer
+            with pytest.raises(_real_psycopg.OperationalError):
+                run_consumer(_make_settings())

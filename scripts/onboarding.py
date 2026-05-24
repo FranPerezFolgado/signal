@@ -65,7 +65,11 @@ def _refresh_access_token(client_id: str, client_secret: str, refresh_token: str
     if resp.status_code != 200:
         print(f"[error] Spotify token refresh failed: HTTP {resp.status_code}", file=sys.stderr)
         sys.exit(1)
-    return resp.json()["access_token"]
+    token = resp.json().get("access_token")
+    if not token:
+        print("[error] Spotify token response missing access_token field", file=sys.stderr)
+        sys.exit(1)
+    return token
 
 
 def _get_followed_artist_names(access_token: str) -> set[str]:
@@ -123,18 +127,18 @@ def _promote_following(conn: psycopg.Connection, followed_names: set[str]) -> in
     return result.rowcount
 
 
-def _mark_high_priority(conn: psycopg.Connection, min_plays: int) -> int:
-    """Set high_priority=true for TRACKED artists at or above the play threshold."""
+def _mark_high_priority(conn: psycopg.Connection, min_scrobbles: int) -> int:
+    """Set high_priority=true for TRACKED artists at or above the scrobble threshold."""
     result = conn.execute(
         """
         UPDATE artists
            SET high_priority = true
          WHERE status = 'TRACKED'
-           AND play_count >= %s
+           AND scrobble_count >= %s
            AND high_priority = false
         RETURNING id
         """,
-        (min_plays,),
+        (min_scrobbles,),
     )
     return result.rowcount
 
@@ -180,7 +184,7 @@ def main() -> None:
     print(f"  Found {len(followed)} followed artist(s) on Spotify.")
 
     # 2. Database
-    print(f"Connecting to database: {db_url.split('@')[-1]}")
+    print("Connecting to database...")
     with psycopg.connect(db_url) as conn:
         before = _count_by_status(conn)
 
@@ -195,7 +199,7 @@ def main() -> None:
     print("Results")
     print("-" * 40)
     print(f"  Artists promoted to FOLLOWING : {promoted}")
-    print(f"  Artists marked high_priority  : {high_priority_marked}  (play_count >= {min_plays})")
+    print(f"  Artists marked high_priority  : {high_priority_marked}  (scrobble_count >= {min_plays})")
     print()
     print("Artist distribution after onboarding:")
     for status, count in after.items():
