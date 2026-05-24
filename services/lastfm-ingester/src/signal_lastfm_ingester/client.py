@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 import requests
 
+from signal_common.rate_limiter import RateLimiter
+
 _BASE_URL = "http://ws.audioscrobbler.com/2.0/"
 _MAX_RETRIES = 3
 
@@ -15,9 +17,10 @@ class RecentTracksPage:
 
 
 class LastfmClient:
-    def __init__(self, api_key: str, username: str):
+    def __init__(self, api_key: str, username: str, rate_limiter: RateLimiter | None = None):
         self.api_key = api_key
         self.username = username
+        self._rate_limiter = rate_limiter
 
     def get_recent_tracks(
         self,
@@ -47,6 +50,8 @@ class LastfmClient:
     def _get_with_retry(self, params: dict) -> dict:
         delay = 1.0
         for attempt in range(_MAX_RETRIES):
+            if self._rate_limiter:
+                self._rate_limiter.acquire()
             response = requests.get(_BASE_URL, params=params, timeout=10)
             if response.status_code in (429, 500, 502, 503, 504):
                 if attempt < _MAX_RETRIES - 1:

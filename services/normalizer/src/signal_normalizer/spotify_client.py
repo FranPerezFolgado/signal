@@ -3,6 +3,7 @@ import time
 import requests
 
 from signal_common.logger import get_logger
+from signal_common.rate_limiter import RateLimiter
 
 _log = get_logger(__name__)
 
@@ -21,11 +22,17 @@ class SpotifyClient:
         client_secret: str,
         refresh_token: str,
         timeout: float = 2.0,
+        rate_limiter: RateLimiter | None = None,
+        retry_after_default: float = 5.0,
+        retry_after_max: float = 60.0,
     ) -> None:
         self._client_id = client_id
         self._client_secret = client_secret
         self._refresh_token = refresh_token
         self._timeout = timeout
+        self._rate_limiter = rate_limiter
+        self._retry_after_default = retry_after_default
+        self._retry_after_max = retry_after_max
         self._access_token: str = ""
 
     def _refresh_access_token(self) -> None:
@@ -47,6 +54,9 @@ class SpotifyClient:
             except SpotifyAuthError as exc:
                 _log.error("spotify_token_unavailable", error=str(exc))
                 return None
+
+        if self._rate_limiter:
+            self._rate_limiter.acquire()
 
         token_refreshed = False
         try:
@@ -74,6 +84,28 @@ class SpotifyClient:
             except SpotifyAuthError as exc:
                 _log.error("spotify_token_refresh_failed", error=str(exc))
                 return None
+            try:
+                resp = requests.get(
+                    url,
+                    headers={"Authorization": f"Bearer {self._access_token}"},
+                    params=params,
+                    timeout=self._timeout,
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+            except requests.RequestException:
+                return None
+
+        if resp.status_code == 429:
+            try:
+                retry_after = float(resp.headers.get("Retry-After", self._retry_after_default))
+            except (ValueError, TypeError):
+                retry_after = self._retry_after_default
+            sleep_s = min(retry_after, self._retry_after_max)
+            _log.warning("spotify_rate_limited", retry_after=sleep_s)
+            time.sleep(sleep_s)
+            if self._rate_limiter:
+                self._rate_limiter.acquire()
             try:
                 resp = requests.get(
                     url,

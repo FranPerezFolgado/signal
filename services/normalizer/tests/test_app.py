@@ -1,3 +1,6 @@
+from unittest.mock import MagicMock, patch
+
+from signal_common.circuit_breaker import CircuitBreaker
 from signal_normalizer.app import _build_output, _is_valid
 
 
@@ -54,3 +57,36 @@ class TestBuildOutput:
         out = _build_output(raw, "sig123", None, None, "2026-01-01T00:01:00Z")
         assert out["artist_id"] is None
         assert out["track_id"] is None
+
+
+class TestCircuitBreakerIntegration:
+    def test_circuit_open_skips_spotify_and_forwards_null_ids(self):
+        cb = CircuitBreaker(failure_threshold=1, timeout_s=60.0)
+        cb.record_failure()
+        assert not cb.should_allow()
+
+        spotify = MagicMock()
+        if cb.should_allow():
+            artist_id, track_id = spotify.search_track("X", "Y")
+        else:
+            artist_id, track_id = None, None
+
+        spotify.search_track.assert_not_called()
+        assert artist_id is None
+        assert track_id is None
+
+    def test_circuit_records_success_on_resolved_ids(self):
+        cb = CircuitBreaker(failure_threshold=3, timeout_s=60.0)
+        cb.record_failure()
+
+        artist_id = "spotify:artist:abc"
+        if artist_id is not None:
+            cb.record_success()
+
+        assert not cb.is_open
+
+    def test_circuit_records_failure_on_null_ids(self):
+        cb = CircuitBreaker(failure_threshold=2, timeout_s=60.0)
+        for _ in range(2):
+            cb.record_failure()
+        assert cb.is_open

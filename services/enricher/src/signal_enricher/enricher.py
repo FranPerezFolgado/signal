@@ -3,9 +3,9 @@ import time
 
 from signal_common.logger import get_logger
 
-from signal_enricher.circuit_breaker import CircuitBreaker
+from signal_common.circuit_breaker import CircuitBreaker
+from signal_common.rate_limiter import RateLimiter
 from signal_enricher.lastfm_client import LastfmFallbackClient
-from signal_enricher.rate_limiter import RateLimiter
 from signal_enricher.spotify_client import EnricherSpotifyClient
 from signal_enricher.settings import Settings
 
@@ -14,18 +14,21 @@ _log = get_logger(__name__)
 
 class Enricher:
     def __init__(self, settings: Settings) -> None:
+        rate_limiter = RateLimiter(settings.spotify_rate_limit_per_30s)
         self._spotify = EnricherSpotifyClient(
             settings.spotify_client_id,
             settings.spotify_client_secret,
             settings.spotify_refresh_token,
             settings.spotify_timeout,
+            rate_limiter=rate_limiter,
+            retry_after_default=settings.spotify_retry_after_default_s,
+            retry_after_max=settings.spotify_retry_after_max_s,
         )
         self._lastfm = (
             LastfmFallbackClient(settings.lastfm_api_key)
             if settings.lastfm_fallback_enabled
             else None
         )
-        self._rate_limiter = RateLimiter(settings.spotify_rate_limit_per_30s)
         self._circuit_breaker = CircuitBreaker(
             settings.circuit_breaker_failure_threshold,
             settings.circuit_breaker_timeout_s,
@@ -45,7 +48,6 @@ class Enricher:
         """Attempt Spotify enrichment with exponential backoff + jitter.
         record_failure is called only once, after all retries are exhausted."""
         for attempt in range(3):
-            self._rate_limiter.acquire()
             artist_data = self._spotify.get_artist_data(artist_id)
             track_data = self._spotify.get_track_data(track_id)
             if artist_data is not None and track_data is not None:

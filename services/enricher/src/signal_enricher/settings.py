@@ -15,5 +15,7 @@ class Settings(CommonSettings):
     circuit_breaker_timeout_s: float = 60.0
     backoff_base_s: float = 1.0
     backoff_max_s: float = 30.0
+    spotify_retry_after_default_s: float = 5.0
+    spotify_retry_after_max_s: float = 60.0
 
     kafka_consumer_group: str = "enricher-group"

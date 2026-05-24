@@ -1,7 +1,7 @@
 import time
 from unittest.mock import patch
 
-from signal_enricher.rate_limiter import RateLimiter
+from signal_common.rate_limiter import RateLimiter
 
 
 class TestRateLimiter:
@@ -28,13 +28,12 @@ class TestRateLimiter:
         rl = RateLimiter(capacity=10)
         rl._tokens = 0.0
         slept = []
-        original_sleep = time.sleep
 
         def fake_sleep(s):
             slept.append(s)
             rl._tokens = 1.0  # unblock on first sleep
 
-        with patch("signal_enricher.rate_limiter.time.sleep", side_effect=fake_sleep):
+        with patch("signal_common.rate_limiter.time.sleep", side_effect=fake_sleep):
             rl.acquire()
 
         assert len(slept) == 1

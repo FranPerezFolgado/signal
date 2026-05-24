@@ -2,6 +2,10 @@ import threading
 import time
 from enum import Enum
 
+from signal_common.logger import get_logger
+
+_log = get_logger(__name__)
+
 
 class State(Enum):
     CLOSED = "closed"
@@ -35,6 +39,7 @@ class CircuitBreaker:
             # OPEN — allow probe once timeout elapses
             if time.monotonic() - self._opened_at >= self._timeout:
                 self._state = State.HALF_OPEN
+                _log.info("circuit_half_open")
                 return True
             return False
 
@@ -48,8 +53,11 @@ class CircuitBreaker:
 
     def record_success(self) -> None:
         with self._lock:
+            prev = self._state
             self._failure_count = 0
             self._state = State.CLOSED
+            if prev != State.CLOSED:
+                _log.info("circuit_closed")
 
     def record_failure(self) -> None:
         with self._lock:
@@ -58,3 +66,4 @@ class CircuitBreaker:
                 self._state = State.OPEN
                 self._opened_at = time.monotonic()
                 self._failure_count = 0
+                _log.warning("circuit_open", threshold=self._threshold)

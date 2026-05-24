@@ -1,9 +1,11 @@
 import signal
 from datetime import UTC, datetime
 
+from signal_common.circuit_breaker import CircuitBreaker
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
+from signal_common.rate_limiter import RateLimiter
 
 from signal_normalizer.settings import Settings
 from signal_normalizer.signal_id import compute_signal_id
@@ -45,11 +47,19 @@ def _build_output(raw: dict, signal_id: str, artist_id: str | None, track_id: st
 
 
 def run_consumer(settings: Settings) -> None:
+    rate_limiter = RateLimiter(settings.spotify_rate_limit_per_30s)
+    circuit_breaker = CircuitBreaker(
+        settings.circuit_breaker_failure_threshold,
+        settings.circuit_breaker_timeout_s,
+    )
     spotify = SpotifyClient(
         settings.spotify_client_id,
         settings.spotify_client_secret,
         settings.spotify_refresh_token,
         settings.spotify_timeout,
+        rate_limiter=rate_limiter,
+        retry_after_default=settings.spotify_retry_after_default_s,
+        retry_after_max=settings.spotify_retry_after_max_s,
     )
 
     consumer = KafkaJsonConsumer(
@@ -87,8 +97,15 @@ def run_consumer(settings: Settings) -> None:
             title = raw["title"]
             signal_id = compute_signal_id(artist, title)
 
-            # Resolve Spotify IDs — 2s timeout, 0 retries. Failure is not fatal.
-            artist_id, track_id = spotify.search_track(artist, title)
+            if circuit_breaker.should_allow():
+                artist_id, track_id = spotify.search_track(artist, title)
+                if artist_id is not None:
+                    circuit_breaker.record_success()
+                else:
+                    circuit_breaker.record_failure()
+            else:
+                _log.warning("circuit_open_skipping_spotify", artist=artist)
+                artist_id, track_id = None, None
 
             processed_at = datetime.now(tz=UTC).isoformat()
             normalized = _build_output(raw, signal_id, artist_id, track_id, processed_at)
