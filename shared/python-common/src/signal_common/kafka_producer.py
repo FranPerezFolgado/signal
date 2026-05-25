@@ -15,7 +15,6 @@ class KafkaJsonProducer:
                 "bootstrap.servers": bootstrap_servers,
                 "client.id": client_id,
                 "acks": "all",
-                "enable.idempotence": True,
             }
         )
 
