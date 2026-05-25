@@ -182,6 +182,22 @@ artist-tracker-logs:
 artist-tracker-down:
 	@$(COMPOSE) stop artist-tracker && $(COMPOSE) rm -f artist-tracker
 
+# ─── api ──────────────────────────────────────────────────────────────────────
+
+.PHONY: api-up api-logs api-down
+
+## Arranca el api como contenedor Docker en background (http://127.0.0.1:8000)
+api-up:
+	@$(COMPOSE) --profile services up -d --build api
+
+## Muestra los logs del api (Ctrl+C para salir)
+api-logs:
+	@docker logs -f signal-api
+
+## Para y elimina el contenedor del api
+api-down:
+	@$(COMPOSE) stop api && $(COMPOSE) rm -f api
+
 # ─── all pipeline services ────────────────────────────────────────────────────
 
 .PHONY: services-up services-down services-restart
