@@ -1,5 +1,7 @@
 # novelty-detector
 
+[![CI](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-novelty-detector.yml/badge.svg)](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-novelty-detector.yml)
+
 Consumes enriched tracks from `tracks.enriched`, cross-references them against the listening history and artist table in PostgreSQL, and emits a novelty event to `tracks.novel` whenever an artist or genre is new.
 
 ## Topics
@@ -18,7 +20,7 @@ For each enriched track the detector checks:
 2. **New genres** — one or more of the track's genres have never been seen in the listening history.
 3. **Track is new** — the specific `signal_id` (artist + title hash) has not been seen before.
 
-A track is emitted to `tracks.novel` if condition 1 or 2 is true. Tracks where `pending_enrichment: true` (incomplete enrichment) are skipped entirely and not sent to the DLQ.
+A track is emitted to `tracks.novel` if condition 1 or 2 is true. Tracks where `pending_enrichment: true` are skipped entirely and not sent to the DLQ.
 
 ## Message schema (`tracks.novel`)
 
@@ -43,15 +45,15 @@ A track is emitted to `tracks.novel` if condition 1 or 2 is true. Tracks where `
 
 ## Artist auto-promotion
 
-When a `TRACKED` artist accumulates scrobbles equal to or exceeding `AUTO_FOLLOW_PLAYS`, the detector promotes them to `FOLLOWING` in the same database transaction. This is best-effort: a DB failure logs a warning and rolls back the promotion without blocking the novelty event.
+When a `TRACKED` artist accumulates scrobbles equal to or exceeding `AUTO_FOLLOW_PLAYS`, the detector promotes them to `FOLLOWING` in the same database transaction. A DB failure logs a warning and rolls back the promotion without blocking the novelty event.
 
 ## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker |
-| `DATABASE_URL` | — | PostgreSQL DSN (required) |
-| `AUTO_FOLLOW_PLAYS` | `3` | Scrobble threshold for auto-promotion to FOLLOWING |
+| `DATABASE_URL` | `postgresql://signal:signal@localhost:5432/signal` | PostgreSQL DSN (required) |
+| `AUTO_FOLLOW_PLAYS` | `3` | Scrobble threshold for auto-promotion to `FOLLOWING` |
 
 ## Running locally
 
@@ -63,7 +65,12 @@ make novelty-detector-logs
 ## Tests
 
 ```bash
-uv run pytest services/novelty-detector/
+cd services/novelty-detector
+uv run pytest tests/unit/ -q
 ```
 
-Tests cover novelty detection logic, artist repository behaviour, and the consumer integration.
+Integration tests require a live stack (`make up`) and auto-skip otherwise:
+
+```bash
+uv run pytest tests/integration/ -q
+```

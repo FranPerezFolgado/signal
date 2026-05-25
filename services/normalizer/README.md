@@ -1,5 +1,7 @@
 # normalizer
 
+[![CI](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-normalizer.yml/badge.svg)](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-normalizer.yml)
+
 Consumes raw scrobbles from `raw.plays`, resolves Spotify IDs for the artist and track, and emits a unified normalised message to `tracks.normalized`.
 
 ## Topics
@@ -29,7 +31,7 @@ Consumes raw scrobbles from `raw.plays`, resolves Spotify IDs for the artist and
 
 ## signal_id
 
-A deterministic SHA-256 hash of the lowercase, stripped `artist` + `title`. This canonical ID ties together the same track arriving from multiple sources (Last.fm play, Spotify enrichment, etc.) without needing a central ID registry.
+A deterministic SHA-256 hash of the lowercase, stripped `artist` + `title`. This canonical ID ties together the same track arriving from multiple sources without needing a central ID registry.
 
 ## Configuration
 
@@ -58,7 +60,12 @@ make normalizer-logs
 ## Tests
 
 ```bash
-uv run pytest services/normalizer/
+cd services/normalizer
+uv run pytest tests/ -q
 ```
 
-Tests cover `signal_id` computation, Spotify client interactions, and the consumer loop behaviour.
+Integration tests require a live stack (`make up`) and auto-skip otherwise:
+
+```bash
+uv run pytest tests/integration/ -q
+```

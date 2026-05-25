@@ -34,7 +34,7 @@ signal/
 ├── infra/
 │   ├── docker-compose.yml     # Kafka (KRaft) + PostgreSQL
 │   └── postgres/init.sql      # Initial schema
-├── services/                  # One directory per Python service
+├── services/                  # One directory per Python service; each has README.md
 ├── shared/python-common/      # Kafka client, logging, shared models
 ├── scripts/onboarding.py      # Initial classification (run once)
 └── docs/                      # Indexed by QMD (collection: signal)
@@ -60,5 +60,5 @@ Active collection: `signal`
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/010-api-service/plan.md`
+`specs/011-immediate-cleanup/plan.md`
 <!-- SPECKIT END -->

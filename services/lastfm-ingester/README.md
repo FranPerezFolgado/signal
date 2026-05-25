@@ -1,5 +1,7 @@
 # lastfm-ingester
 
+[![CI](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-lastfm-ingester.yml/badge.svg)](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-lastfm-ingester.yml)
+
 Polls the Last.fm API for recent scrobbles and publishes them to the `raw.plays` Kafka topic.
 
 ## Topics
@@ -35,7 +37,7 @@ Polls the Last.fm API for recent scrobbles and publishes them to the `raw.plays`
 | `LASTFM_USERNAME` | — | Last.fm username to fetch (required) |
 | `LASTFM_POLL_INTERVAL_SECONDS` | `60` | Seconds between poll cycles |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker address |
-| `DATABASE_URL` | — | PostgreSQL DSN (used for checkpoint persistence) |
+| `DATABASE_URL` | `postgresql://signal:signal@localhost:5432/signal` | PostgreSQL DSN (checkpoint persistence) |
 | `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `5` | Consecutive failures before the circuit opens |
 | `CIRCUIT_BREAKER_TIMEOUT_S` | `60.0` | Seconds the circuit stays open before half-open probe |
 
@@ -54,7 +56,7 @@ make ingester-poll
 # Backfill (full history, one-shot)
 make ingester-backfill
 
-# As Docker container (profile: services)
+# As Docker container
 make ingester-up
 make ingester-logs
 ```
@@ -62,7 +64,12 @@ make ingester-logs
 ## Tests
 
 ```bash
-uv run pytest services/lastfm-ingester/
+cd services/lastfm-ingester
+uv run pytest tests/ -q
 ```
 
-Tests cover the Last.fm → `raw.plays` converter and resilience primitives.
+Integration tests require a live stack (`make up`) and auto-skip otherwise:
+
+```bash
+uv run pytest tests/integration/ -q
+```

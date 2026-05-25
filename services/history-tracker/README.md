@@ -1,5 +1,7 @@
 # history-tracker
 
+[![CI](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-history-tracker.yml/badge.svg)](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-history-tracker.yml)
+
 Consumes enriched tracks from `tracks.enriched`, persists them to PostgreSQL, upserts the artist record, and forwards each event to `listening.history` for downstream consumers.
 
 ## Topics
@@ -22,16 +24,16 @@ An artist row is upserted on every track. On the first encounter the artist is c
 
 ## Dead-letter queue
 
-Messages that fail PostgreSQL writes or Kafka produce calls are routed to `history-tracker.dlq` with an `error_reason` field. The consumer offset is still committed so the main pipeline never stalls. Errors in the DLQ topic itself are logged but do not halt the service.
+Messages that fail PostgreSQL writes or Kafka produce calls are routed to `history-tracker.dlq` with an `error_reason` field. The consumer offset is still committed so the main pipeline never stalls.
 
-See [ADR-005](../adr/ADR-005-dead-letter-queue-pattern.md) for the DLQ rationale.
+See [ADR-005](../../docs/adr/ADR-005-dead-letter-queue-pattern.md) for the DLQ rationale.
 
 ## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker |
-| `DATABASE_URL` | — | PostgreSQL DSN (required) |
+| `DATABASE_URL` | `postgresql://signal:signal@localhost:5432/signal` | PostgreSQL DSN (required) |
 
 ## Running locally
 
@@ -43,7 +45,12 @@ make history-tracker-logs
 ## Tests
 
 ```bash
-uv run pytest services/history-tracker/
+cd services/history-tracker
+uv run pytest tests/unit/ -q
 ```
 
-Tests cover repository upsert logic, DLQ publishing, and the integration behaviour of the consumer loop.
+Integration tests require a live stack (`make up`) and auto-skip otherwise:
+
+```bash
+uv run pytest tests/integration/ -q
+```

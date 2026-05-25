@@ -1,5 +1,7 @@
 # scorer
 
+[![CI](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-scorer.yml/badge.svg)](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-scorer.yml)
+
 Terminal consumer that reads novel artist events from `tracks.novel`, computes a 2-factor discovery score, and upserts the result into the `artist_recommendations` PostgreSQL table. No output topic is produced.
 
 ## Topics
@@ -47,26 +49,13 @@ score           = min(raw_score, 1.0)               # otherwise
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker |
-| `DATABASE_URL` | — | PostgreSQL DSN (required) |
+| `DATABASE_URL` | `postgresql://signal:signal@localhost:5432/signal` | PostgreSQL DSN (required) |
 | `W1` | `0.6` | Genre novelty weight |
 | `W2` | `0.4` | Popularity norm weight |
 | `HP_BONUS` | `1.2` | Score multiplier for `high_priority` artists |
 | `SCORER_STATS_INTERVAL` | `100` | Log counters every N messages |
 
 A startup warning is logged if `|W1 + W2 - 1.0| > 0.01`.
-
-## Verifying results
-
-```bash
-# Check artist_recommendations after producing a test message
-psql postgresql://signal:signal@localhost:5432/signal \
-  -c "SELECT artist_id, score, score_breakdown, evidence_tracks, updated_at FROM artist_recommendations ORDER BY updated_at DESC LIMIT 5;"
-
-# Monitor consumer lag
-docker compose -f infra/docker-compose.yml exec kafka \
-  kafka-consumer-groups --bootstrap-server kafka:29092 \
-  --group scorer --describe
-```
 
 ## Running locally
 
@@ -77,7 +66,12 @@ docker compose -f infra/docker-compose.yml --profile services up scorer
 ## Tests
 
 ```bash
-uv run --package signal-scorer pytest services/scorer/
+cd services/scorer
+uv run pytest tests/unit/ -q
 ```
 
-Unit tests cover scoring logic, validation, DLQ paths, and consumer lifecycle. Integration tests require `make up` and auto-skip when the stack is unavailable.
+Integration tests require a live stack (`make up`) and auto-skip otherwise:
+
+```bash
+uv run pytest tests/integration/ -q
+```

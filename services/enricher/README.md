@@ -1,5 +1,7 @@
 # enricher
 
+[![CI](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-enricher.yml/badge.svg)](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-enricher.yml)
+
 Consumes normalised tracks from `tracks.normalized`, fetches genre and popularity metadata from Spotify (with a Last.fm fallback), and emits enriched events to `tracks.enriched`.
 
 ## Topics
@@ -35,7 +37,7 @@ Consumes normalised tracks from `tracks.normalized`, fetches genre and popularit
 2. **Last.fm** — `artist.getTopTags` as fallback when Spotify is unavailable or returns no genres.
 3. **Pending** — if both APIs fail, `pending_enrichment` is set to `true` and the message is forwarded without genre data.
 
-See [ADR-004](../adr/ADR-004-enrichment-fallback-chain.md) for the rationale behind this chain.
+See [ADR-004](../../docs/adr/ADR-004-enrichment-fallback-chain.md) for the rationale behind this chain.
 
 ## Configuration
 
@@ -59,7 +61,7 @@ See [ADR-004](../adr/ADR-004-enrichment-fallback-chain.md) for the rationale beh
 - **Circuit breaker** — three-state (CLOSED → OPEN → HALF_OPEN); the Last.fm fallback is only attempted when Spotify is available but returns no genres, not when the circuit is open.
 - **Exponential backoff** — applied on Spotify 429 responses, respecting the `Retry-After` header.
 
-See [ADR-010](../adr/ADR-010-shared-resilience-primitives.md) for why these primitives live in `signal_common`.
+See [ADR-010](../../docs/adr/ADR-010-shared-resilience-primitives.md) for why these primitives live in `signal_common`.
 
 ## Running locally
 
@@ -71,7 +73,12 @@ make enricher-logs
 ## Tests
 
 ```bash
-uv run pytest services/enricher/
+cd services/enricher
+uv run pytest tests/unit/ -q
 ```
 
-Tests cover Spotify and Last.fm client interactions, the fallback chain logic, and the consumer loop.
+Integration tests require a live stack (`make up`) and auto-skip otherwise:
+
+```bash
+uv run pytest tests/integration/ -q
+```

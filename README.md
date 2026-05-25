@@ -2,7 +2,7 @@
 
 Event-driven musical artist discovery system. Ingests your Last.fm listening history, resolves and enriches tracks through Spotify, detects artists and genres you haven't heard before, and surfaces them ranked by novelty.
 
-> **Status**: MVP pipeline implemented — ingestion, normalisation, enrichment, history tracking, and novelty detection are running. Scorer, API, and dashboard are planned (see [Architecture](#architecture)).
+> **Status**: MVP v2 complete — full pipeline running: ingestion → normalisation → enrichment → history tracking → novelty detection → scoring → API. See [SIGNAL-Roadmap.md](docs/SIGNAL-Roadmap.md) for what's next.
 
 ---
 
@@ -18,12 +18,15 @@ Each box is an independent Docker container. Each arrow is a Kafka topic. The AP
 
 | Service | Language | Consumes | Produces | Description |
 |---------|----------|----------|----------|-------------|
-| [lastfm-ingester](docs/services/lastfm-ingester.md) | Python | — | `raw.plays` | Polls Last.fm scrobbles |
-| [normalizer](docs/services/normalizer.md) | Python | `raw.plays` | `tracks.normalized` | Resolves Spotify IDs; computes `signal_id` |
-| [enricher](docs/services/enricher.md) | Python | `tracks.normalized` | `tracks.enriched` | Fetches genres + popularity (Spotify / Last.fm fallback) |
-| [history-tracker](docs/services/history-tracker.md) | Python | `tracks.enriched` | `listening.history` | Persists plays and artists to PostgreSQL |
-| [novelty-detector](docs/services/novelty-detector.md) | Python | `tracks.enriched` | `tracks.novel` | Detects new artists/genres; auto-promotes artists |
-| [shared-common](docs/services/shared-common.md) | Python | — | — | Kafka, DB, logging, rate limiter, circuit breaker |
+| [lastfm-ingester](services/lastfm-ingester/README.md) | Python | — | `raw.plays` | Polls Last.fm scrobbles |
+| [normalizer](services/normalizer/README.md) | Python | `raw.plays` | `tracks.normalized` | Resolves Spotify IDs; computes `signal_id` |
+| [enricher](services/enricher/README.md) | Python | `tracks.normalized` | `tracks.enriched` | Fetches genres + popularity (Spotify / Last.fm fallback) |
+| [history-tracker](services/history-tracker/README.md) | Python | `tracks.enriched` | `listening.history` | Persists plays and artists to PostgreSQL |
+| [novelty-detector](services/novelty-detector/README.md) | Python | `tracks.enriched` | `tracks.novel` | Detects new artists/genres; auto-promotes artists |
+| [scorer](services/scorer/README.md) | Python | `tracks.novel` | — | Scores novel artists into `artist_recommendations` |
+| [artist-tracker](services/artist-tracker/README.md) | Python | — | `raw.tracks` | Polls Spotify top-tracks for `FOLLOWING` artists |
+| [api](services/api/README.md) | Python | — | — | FastAPI: artist lifecycle management + recommendations |
+| [signal-common](shared/python-common/README.md) | Python | — | — | Kafka, DB, logging, rate limiter, circuit breaker |
 
 ---
 
@@ -350,7 +353,10 @@ signal/
 │   ├── normalizer/                 # raw.plays → tracks.normalized
 │   ├── enricher/                   # tracks.normalized → tracks.enriched
 │   ├── history-tracker/            # tracks.enriched → listening.history + PostgreSQL
-│   └── novelty-detector/           # tracks.enriched → tracks.novel
+│   ├── novelty-detector/           # tracks.enriched → tracks.novel
+│   ├── scorer/                     # tracks.novel → artist_recommendations (PostgreSQL)
+│   ├── artist-tracker/             # polls Spotify top-tracks → raw.tracks
+│   └── api/                        # FastAPI: artist management + recommendations
 │
 ├── shared/
 │   └── python-common/              # Kafka, DB, logging, rate limiter, circuit breaker
