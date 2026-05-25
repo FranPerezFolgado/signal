@@ -12,7 +12,7 @@ from signal_normalizer.settings import Settings
 from signal_normalizer.signal_id import compute_signal_id
 from signal_normalizer.spotify_client import SpotifyClient
 
-_INPUT_TOPIC = "raw.plays"
+_INPUT_TOPICS = ["raw.plays", "raw.tracks"]
 _OUTPUT_TOPIC = "tracks.normalized"
 _CLIENT_ID = "normalizer"
 
@@ -80,8 +80,8 @@ def run_consumer(settings: Settings) -> None:
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
 
-    consumer.subscribe([_INPUT_TOPIC])
-    _log.info("normalizer_started")
+    consumer.subscribe(_INPUT_TOPICS)
+    _log.info("normalizer_started", topics=_INPUT_TOPICS)
 
     try:
         while not stop:

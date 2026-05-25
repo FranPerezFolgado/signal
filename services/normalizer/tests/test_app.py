@@ -1,10 +1,11 @@
+import signal as _signal
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from signal_common.circuit_breaker import CircuitBreaker
 from signal_common.spotify import SpotifyServiceError
-from signal_normalizer.app import _build_output, _is_valid
+from signal_normalizer.app import _INPUT_TOPICS, _build_output, _is_valid
 
 
 class TestIsValid:
@@ -108,3 +109,81 @@ class TestCircuitBreakerIntegration:
                     cb.record_failure()
 
         assert cb.is_open
+
+
+class TestMultiTopicSubscription:
+    def test_consumer_subscribes_to_both_topics(self):
+        assert "raw.plays" in _INPUT_TOPICS
+        assert "raw.tracks" in _INPUT_TOPICS
+
+    def _run_one_message(self, msg: dict):
+        settings = MagicMock()
+        settings.kafka_bootstrap_servers = "localhost:9092"
+        settings.kafka_consumer_group = "test-group"
+        settings.spotify_rate_limit_per_30s = 30
+        settings.circuit_breaker_failure_threshold = 5
+        settings.circuit_breaker_timeout_s = 60.0
+        settings.spotify_client_id = "id"
+        settings.spotify_client_secret = "secret"
+        settings.spotify_refresh_token = "token"
+        settings.spotify_timeout = 5.0
+        settings.spotify_retry_after_default_s = 5.0
+        settings.spotify_retry_after_max_s = 60.0
+
+        poll_calls = [0]
+
+        def poll_side_effect(timeout):
+            poll_calls[0] += 1
+            return msg if poll_calls[0] == 1 else None
+
+        consumer = MagicMock()
+        consumer.poll.side_effect = poll_side_effect
+
+        handlers: dict = {}
+
+        def register_handler(sig, handler):
+            handlers[sig] = handler
+
+        producer = MagicMock()
+        producer.flush.return_value = 0
+
+        def commit_then_stop(*args, **kwargs):
+            if _signal.SIGTERM in handlers:
+                handlers[_signal.SIGTERM](_signal.SIGTERM, None)
+
+        consumer.commit.side_effect = commit_then_stop
+
+        with (
+            patch("signal_normalizer.app.KafkaJsonConsumer", return_value=consumer),
+            patch("signal_normalizer.app.KafkaJsonProducer", return_value=producer),
+            patch("signal_normalizer.app.SpotifyClient") as mock_spotify_cls,
+            patch("signal_normalizer.app.signal") as mock_sig,
+        ):
+            mock_sig.SIGTERM = _signal.SIGTERM
+            mock_sig.SIGINT = _signal.SIGINT
+            mock_sig.signal.side_effect = register_handler
+
+            spotify = MagicMock()
+            spotify.search_track.return_value = (None, None)
+            mock_spotify_cls.return_value = spotify
+
+            from signal_normalizer.app import run_consumer
+            run_consumer(settings)
+
+        return producer, consumer
+
+    def test_spotify_source_produces_played_false(self):
+        msg = {"artist": "Actress", "title": "Ascending", "source": "spotify"}
+        producer, _ = self._run_one_message(msg)
+
+        producer.produce.assert_called_once()
+        _, out_msg = producer.produce.call_args[0][0], producer.produce.call_args[0][1]
+        assert out_msg["played"] is False
+
+    def test_lastfm_source_produces_played_true(self):
+        msg = {"artist": "Actress", "title": "Ascending", "source": "lastfm", "played_at": "2026-01-01T00:00:00Z"}
+        producer, _ = self._run_one_message(msg)
+
+        producer.produce.assert_called_once()
+        _, out_msg = producer.produce.call_args[0][0], producer.produce.call_args[0][1]
+        assert out_msg["played"] is True
