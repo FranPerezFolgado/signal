@@ -2,7 +2,7 @@
 
 COMPOSE = docker compose -f infra/docker-compose.yml
 
-.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs onboarding
+.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs onboarding test-e2e
 
 ## Arranca Kafka + Zookeeper + PostgreSQL (y crea los topics)
 up:
@@ -225,3 +225,11 @@ kafka-ui-up:
 ## Para y elimina el contenedor de kafka-ui
 kafka-ui-down:
 	@$(COMPOSE) stop kafka-ui && $(COMPOSE) rm -f kafka-ui
+
+# ─── e2e tests ────────────────────────────────────────────────────────────────
+
+.PHONY: test-e2e
+
+## Full pipeline smoke test (requires make up && make services-up)
+test-e2e:
+	@uv run pytest tests/e2e/ -q --timeout=90
