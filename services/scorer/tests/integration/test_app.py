@@ -13,6 +13,7 @@ import uuid
 import psycopg
 import pytest
 from confluent_kafka import Producer
+from signal_common.models import ArtistStatus
 
 KAFKA = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 DB_URL = os.getenv("DATABASE_URL", "postgresql://signal:signal@localhost:5432/signal")
@@ -54,11 +55,11 @@ def _insert_test_artist(conn: psycopg.Connection, spotify_uri: str, name: str) -
         cur.execute(
             """
             INSERT INTO artists (name, external_ids, status, high_priority)
-            VALUES (%s, %s::jsonb, 'TRACKED', false)
+            VALUES (%s, %s::jsonb, %s, false)
             ON CONFLICT DO NOTHING
             RETURNING id
             """,
-            (name, json.dumps({"spotify": spotify_uri})),
+            (name, json.dumps({"spotify": spotify_uri}), ArtistStatus.TRACKED.value),
         )
         row = cur.fetchone()
         if row:
@@ -66,7 +67,10 @@ def _insert_test_artist(conn: psycopg.Connection, spotify_uri: str, name: str) -
             return row[0]
         # Already existed — fetch it
         cur.execute("SELECT id FROM artists WHERE LOWER(name) = LOWER(%s)", (name,))
-        return cur.fetchone()[0]
+        existing = cur.fetchone()
+        if existing is None:
+            raise RuntimeError(f"Artist '{name}' not found after INSERT conflict")
+        return existing[0]
 
 
 def _wait_for_recommendation(
@@ -146,12 +150,11 @@ class TestScorerIntegration:
 
         time.sleep(5)  # let scorer process both
 
-        with psycopg.connect(DB_URL) as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT COUNT(*) FROM artist_recommendations WHERE artist_id = %s",
-                    (str(artist_uuid),),
-                )
-                count = cur.fetchone()[0]
+        with psycopg.connect(DB_URL) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM artist_recommendations WHERE artist_id = %s",
+                (str(artist_uuid),),
+            )
+            count = cur.fetchone()[0]
 
         assert count == 1, f"Expected 1 recommendation row, got {count}"
