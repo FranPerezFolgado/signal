@@ -5,6 +5,7 @@ from psycopg import OperationalError as _PsycopgOperationalError
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
+from signal_common.models import ArtistStatus
 
 from signal_novelty_detector.artist_repository import ArtistRepository
 from signal_novelty_detector.dlq_publisher import DlqPublisher
@@ -109,7 +110,7 @@ def run_consumer(settings: Settings) -> None:
 
                     # Auto-promotion: best-effort; DB failure logs a warning, never blocks the event
                     if (
-                        artist_row["status"] == "TRACKED"
+                        artist_row["status"] == ArtistStatus.TRACKED
                         and artist_row["scrobble_count"] >= settings.auto_follow_plays
                     ):
                         try:

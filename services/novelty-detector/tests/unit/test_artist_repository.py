@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+from signal_common.models import ArtistStatus
 from signal_novelty_detector.artist_repository import ArtistRepository
 
 
@@ -23,13 +24,13 @@ class TestGet:
         artist_id = uuid.uuid4()
         conn, _ = _mock_conn((artist_id, "TRACKED", 5))
         result = ArtistRepository().get(conn, "Actress")
-        assert result == {"id": artist_id, "status": "TRACKED", "scrobble_count": 5}
+        assert result == {"id": artist_id, "status": ArtistStatus.TRACKED, "scrobble_count": 5}
 
     def test_returns_following_status(self):
         import uuid
         conn, _ = _mock_conn((uuid.uuid4(), "FOLLOWING", 10))
         result = ArtistRepository().get(conn, "Burial")
-        assert result["status"] == "FOLLOWING"
+        assert result["status"] == ArtistStatus.FOLLOWING
 
 
 class TestPromoteToFollowing:
