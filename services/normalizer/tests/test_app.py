@@ -115,6 +115,9 @@ class TestMultiTopicSubscription:
     def test_consumer_subscribes_to_both_topics(self):
         assert "raw.plays" in _INPUT_TOPICS
         assert "raw.tracks" in _INPUT_TOPICS
+        msg = {"artist": "Actress", "title": "Ascending", "source": "lastfm", "played_at": "2026-01-01T00:00:00Z"}
+        _, consumer = self._run_one_message(msg)
+        consumer.subscribe.assert_called_once_with(_INPUT_TOPICS)
 
     def _run_one_message(self, msg: dict):
         settings = MagicMock()

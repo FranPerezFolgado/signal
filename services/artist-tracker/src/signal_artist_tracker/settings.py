@@ -12,3 +12,5 @@ class Settings(CommonSettings):
     kafka_output_topic: str = "raw.tracks"
     spotify_retry_after_default_s: float = 5.0
     spotify_retry_after_max_s: float = 60.0
+    circuit_breaker_failure_threshold: int = 5
+    circuit_breaker_timeout_s: float = 60.0

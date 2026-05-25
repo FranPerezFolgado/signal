@@ -61,29 +61,33 @@ def _refresh_token(client_id: str, client_secret: str, refresh_token: str) -> st
 
 def _search_artist(name: str, access_token: str) -> str | None:
     """Return the Spotify artist URI for the best-matching artist name, or None."""
-    resp = requests.get(
-        f"{_API_BASE}/search",
-        headers={"Authorization": f"Bearer {access_token}"},
-        params={"q": f"artist:{name}", "type": "artist", "limit": 1, "market": "from_token"},
-        timeout=10,
-    )
-    if resp.status_code == 429:
-        retry_after = int(resp.headers.get("Retry-After", 5))
-        if retry_after > 120:
-            print(f"\n[quota exhausted] Spotify says retry after {retry_after}s ({retry_after // 3600}h).")
-            print("Re-run the script later — it will skip already-resolved artists.")
-            sys.exit(0)
-        print(f"  [rate-limited] sleeping {retry_after}s …")
-        time.sleep(retry_after)
-        return _search_artist(name, access_token)
-    if resp.status_code != 200:
-        print(f"  [warn] search failed for '{name}': HTTP {resp.status_code}")
-        return None
-    items = resp.json().get("artists", {}).get("items", [])
-    if not items:
-        return None
-    artist = items[0]
-    return f"spotify:artist:{artist['id']}"
+    while True:
+        resp = requests.get(
+            f"{_API_BASE}/search",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"q": f"artist:{name}", "type": "artist", "limit": 1, "market": "from_token"},
+            timeout=10,
+        )
+        if resp.status_code == 429:
+            try:
+                retry_after = int(resp.headers.get("Retry-After", 5))
+            except (ValueError, TypeError):
+                retry_after = 5
+            if retry_after > 120:
+                print(f"\n[quota exhausted] Spotify says retry after {retry_after}s ({retry_after // 3600}h).")
+                print("Re-run the script later — it will skip already-resolved artists.")
+                sys.exit(0)
+            print(f"  [rate-limited] sleeping {retry_after}s …")
+            time.sleep(retry_after)
+            continue
+        if resp.status_code != 200:
+            print(f"  [warn] search failed for '{name}': HTTP {resp.status_code}")
+            return None
+        items = resp.json().get("artists", {}).get("items", [])
+        if not items:
+            return None
+        artist = items[0]
+        return f"spotify:artist:{artist['id']}"
 
 
 def _get_artists_missing_spotify_id(conn: psycopg.Connection) -> list[dict]:

@@ -1,3 +1,5 @@
+import json
+
 import psycopg
 
 from signal_common.logger import get_logger
@@ -23,7 +25,6 @@ RETURNING id, (xmax = 0) AS inserted
 class ArtistRepository:
     def upsert(self, conn: psycopg.Connection, msg: dict, *, new_track: bool = True) -> bool:
         artist_id = msg.get("artist_id")
-        import json
         external_ids = json.dumps({"spotify": artist_id}) if artist_id else None
         params = {
             "artist": msg["artist"],

@@ -2,7 +2,7 @@ import signal
 import time
 
 import psycopg
-from psycopg import OperationalError as _PsycopgOperationalError
+from psycopg import Error as _PsycopgError
 from signal_common.circuit_breaker import CircuitBreaker
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
@@ -20,8 +20,8 @@ def _build_track_message(track: dict, artist_row: dict) -> dict:
     artist_uri = artist_row["external_ids"]["spotify"]
     return {
         "source": "spotify",
-        "artist": track["artist_name"],
-        "artist_id": f"spotify:artist:{track['artist_id']}",
+        "artist": artist_row["name"],
+        "artist_id": artist_uri,
         "track_id": f"spotify:track:{track['id']}",
         "title": track["name"],
         "origin": {
@@ -31,11 +31,11 @@ def _build_track_message(track: dict, artist_row: dict) -> dict:
     }
 
 
-def run(settings: Settings) -> None:
+def run_polling(settings: Settings) -> None:
     rate_limiter = RateLimiter(settings.artist_tracker_rate_limit_per_30s)
     circuit_breaker = CircuitBreaker(
-        failure_threshold=5,
-        timeout_s=60.0,
+        failure_threshold=settings.circuit_breaker_failure_threshold,
+        timeout_s=settings.circuit_breaker_timeout_s,
     )
     spotify = SpotifyClient(
         settings.spotify_client_id,
@@ -83,10 +83,16 @@ def _run_cycle(
     artist_repo: ArtistRepository,
 ) -> None:
     try:
-        with psycopg.connect(settings.database_url) as conn:
-            artists = artist_repo.get_eligible(conn, settings.artist_reexplore_days)
-    except _PsycopgOperationalError as exc:
-        _log.error("db_connection_failed", error=str(exc))
+        conn = psycopg.connect(settings.database_url)
+    except _PsycopgError as exc:
+        _log.error("db_connection_failed", error=type(exc).__name__)
+        return
+
+    try:
+        artists = artist_repo.get_eligible(conn, settings.artist_reexplore_days)
+    except _PsycopgError as exc:
+        _log.error("db_get_eligible_failed", error=type(exc).__name__)
+        conn.close()
         return
 
     explored = skipped = failed = 0
@@ -122,21 +128,21 @@ def _run_cycle(
         if tracks:
             unflushed = producer.flush(timeout=10.0)
             if unflushed > 0:
-                _log.error("kafka_flush_timeout", artist=artist_name, unflushed=unflushed)
-                failed += 1
-                continue
+                # Messages remain buffered and will drain on the next flush.
+                # Still mark explored to avoid duplicate delivery on the next cycle.
+                _log.warning("kafka_flush_timeout", artist=artist_name, unflushed=unflushed)
 
         try:
-            with psycopg.connect(settings.database_url) as conn:
-                artist_repo.mark_explored(conn, artist_row["id"])
-        except _PsycopgOperationalError as exc:
-            _log.error("db_mark_explored_failed", artist=artist_name, error=str(exc))
+            artist_repo.mark_explored(conn, artist_row["id"])
+        except _PsycopgError as exc:
+            _log.error("db_mark_explored_failed", artist=artist_name, error=type(exc).__name__)
             failed += 1
             continue
 
         _log.info("artist_explored", artist=artist_name, track_count=len(tracks))
         explored += 1
 
+    conn.close()
     _log.info("cycle_complete", explored=explored, skipped=skipped, failed=failed)
 
 
