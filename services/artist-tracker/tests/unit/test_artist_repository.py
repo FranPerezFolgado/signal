@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 from uuid import UUID
 
-from signal_artist_tracker.artist_repository import ArtistRepository, _GET_ELIGIBLE_SQL, _MARK_EXPLORED_SQL
+from signal_artist_tracker.artist_repository import ArtistRepository
 
 
 def _make_conn(rows=None):
