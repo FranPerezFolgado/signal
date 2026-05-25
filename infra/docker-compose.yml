@@ -262,6 +262,25 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
 
+  # ─── api ─────────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: services/api/Dockerfile
+    container_name: signal-api
+    profiles: [services]
+    restart: on-failure
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
+
 volumes:
   kafka-data:
   postgres-data:

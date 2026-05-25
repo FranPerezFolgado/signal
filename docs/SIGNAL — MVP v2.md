@@ -880,12 +880,3 @@ Orden después del MVP v2:
 Si el fallback Last.fm no cubre suficientes casos (artistas muy underground), MusicBrainz es la siguiente opción: API gratuita, muy completa, ya usa MBIDs que Last.fm expone.
 
 ## ADD CI in every sevice with github actions, with tests and linters, and add a badge to the readme of each service
-
-## ADD repo readme and documentation of every service in the docs folder. Add a main readme in the root with the general documentation and a link to the docs folder for more details of each service.
-Add a section in the main readme with instructions to run the project locally, including how to set up the environment variables and how to run the docker compose.
-Add a section in the main readme with instructions to run the tests and linters for each service.
-Add a section in the main readme with instructions to deploy the project to production, including how to set up the environment variables and how to run the docker compose in production mode.
-Add a section in the main readme with instructions to monitor the project in production, including how to access the logs and metrics of each service.
-Add a section with the architecture decisions and the reasoning behind them, linking to the ADRs in the docs folder for more details.
-Add a section with diagrams explaining the architecture and the data flow between services, linking to the diagrams in the docs folder for more details.
-Add useful svg to the documentation, the svg should live in the docs/assets folder and be imported in the markdown files when needed.
