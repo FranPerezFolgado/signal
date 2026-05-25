@@ -1,0 +1,64 @@
+name: ci-e2e
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: pipeline-smoke-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+      # matches docker-compose defaults; update if POSTGRES_PASSWORD is customised
+      DATABASE_URL: postgresql://signal:signal@localhost:5432/signal
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb  # v5.4.2
+
+      - name: Start infra (Kafka + PostgreSQL)
+        run: docker compose -f infra/docker-compose.yml up -d
+        env:
+          COMPOSE_FILE: infra/docker-compose.yml
+
+      - name: Wait for infra to be healthy
+        run: |
+          echo "Waiting for Kafka and PostgreSQL..."
+          timeout 60 bash -c 'until docker compose -f infra/docker-compose.yml ps | grep signal-kafka | grep -q healthy; do sleep 2; done'
+          timeout 60 bash -c 'until docker compose -f infra/docker-compose.yml ps | grep signal-postgres | grep -q healthy; do sleep 2; done'
+
+      - name: Start pipeline services
+        run: docker compose -f infra/docker-compose.yml --profile services up -d
+        env:
+          LASTFM_API_KEY: e2e-placeholder
+          LASTFM_USERNAME: e2e-placeholder
+          SPOTIFY_CLIENT_ID: e2e-placeholder
+          SPOTIFY_CLIENT_SECRET: e2e-placeholder
+          SPOTIFY_REFRESH_TOKEN: e2e-placeholder
+
+      - name: Wait for services to start
+        run: |
+          echo "Waiting for pipeline services to start..."
+          timeout 90 bash -c '
+            for c in signal-history-tracker signal-novelty-detector signal-scorer; do
+              until docker inspect --format "{{.State.Status}}" "$c" 2>/dev/null | grep -q "running"; do
+                sleep 3
+              done
+              echo "$c is running"
+            done
+          '
+          sleep 5  # allow consumer group registration
+
+      - run: uv sync --frozen
+
+      - name: Run e2e tests
+        run: uv run pytest tests/e2e/ -q --timeout=90
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f infra/docker-compose.yml --profile services down -v

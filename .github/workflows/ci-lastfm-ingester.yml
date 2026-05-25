@@ -1,0 +1,31 @@
+name: ci-lastfm-ingester
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/lastfm-ingester/**'
+      - 'shared/python-common/**'
+      - 'pyproject.toml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/lastfm-ingester/**'
+      - 'shared/python-common/**'
+      - 'pyproject.toml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: lint-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb  # v5.4.2
+      - run: uv sync --frozen
+      - run: uv run ruff check services/lastfm-ingester/
+      - run: uv run mypy services/lastfm-ingester/src/
+      - run: uv run pytest services/lastfm-ingester/tests/ -q
