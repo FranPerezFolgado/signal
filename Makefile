@@ -166,6 +166,22 @@ novelty-detector-logs:
 novelty-detector-down:
 	@$(COMPOSE) stop novelty-detector && $(COMPOSE) rm -f novelty-detector
 
+# ─── artist-tracker ───────────────────────────────────────────────────────────
+
+.PHONY: artist-tracker-up artist-tracker-logs artist-tracker-down
+
+## Arranca el artist-tracker como contenedor Docker en background
+artist-tracker-up:
+	@$(COMPOSE) --profile services up -d --build artist-tracker
+
+## Muestra los logs del artist-tracker (Ctrl+C para salir)
+artist-tracker-logs:
+	@docker logs -f signal-artist-tracker
+
+## Para y elimina el contenedor del artist-tracker
+artist-tracker-down:
+	@$(COMPOSE) stop artist-tracker && $(COMPOSE) rm -f artist-tracker
+
 # ─── all pipeline services ────────────────────────────────────────────────────
 
 .PHONY: services-up services-down services-restart

@@ -240,6 +240,28 @@ services:
       HP_BONUS: "1.2"
       SCORER_STATS_INTERVAL: "100"
 
+  # ─── artist-tracker ──────────────────────────────────────────────────────────
+  artist-tracker:
+    build:
+      context: ..
+      dockerfile: services/artist-tracker/Dockerfile
+    container_name: signal-artist-tracker
+    profiles: [services]
+    restart: on-failure
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file: ../.env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
+
 volumes:
   kafka-data:
   postgres-data:

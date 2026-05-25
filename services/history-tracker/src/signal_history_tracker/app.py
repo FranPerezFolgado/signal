@@ -74,6 +74,11 @@ def run_consumer(settings: Settings) -> None:
                     consumer.commit()
                     continue
 
+                if raw.get("played") is False:
+                    _log.debug("skipping_unplayed_track", signal_id=str(raw["signal_id"])[:8])
+                    consumer.commit()
+                    continue
+
                 try:
                     inserted = history_repo.upsert(conn, raw)
                     artist_repo.upsert(conn, raw, new_track=inserted)
