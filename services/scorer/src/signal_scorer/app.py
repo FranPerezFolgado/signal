@@ -1,3 +1,4 @@
+import json
 import signal
 import time
 from uuid import UUID
@@ -59,9 +60,10 @@ def upsert_recommendation(
     breakdown: dict,
     signal_id: str,
 ) -> None:
-    """Upsert artist_recommendations row. updated_at always refreshed; score/evidence only on improvement."""
-    import json
+    """Upsert artist_recommendations row.
 
+    updated_at is always refreshed; score/evidence only updated when the new score improves.
+    """
     breakdown_json = json.dumps(breakdown)
     signal_id_json = json.dumps([signal_id])
 
@@ -89,7 +91,10 @@ def upsert_recommendation(
                 END,
                 updated_at = now()
             """,
-            (str(artist_uuid), score, breakdown_json, signal_id_json, signal_id_json, signal_id_json),
+            (
+                str(artist_uuid), score, breakdown_json,
+                signal_id_json, signal_id_json, signal_id_json,
+            ),
         )
     conn.commit()
 
@@ -192,7 +197,8 @@ def run_consumer(settings: Settings) -> None:
                     total_upserted += 1
                     consumer.commit()
 
-                except _PsycopgOperationalError:
+                except _PsycopgOperationalError as exc:
+                    _log.error("db_connection_error", error=str(exc))
                     raise
 
                 except Exception as exc:
@@ -225,7 +231,7 @@ def run_consumer(settings: Settings) -> None:
 def _maybe_log_stats(
     consumed: int, upserted: int, dlq: int, errors: int, interval: int
 ) -> None:
-    if consumed % interval == 0:
+    if consumed > 0 and consumed % interval == 0:
         _log.info(
             "stats",
             total_consumed=consumed,
