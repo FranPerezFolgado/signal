@@ -5,9 +5,13 @@ import time
 
 import psycopg
 from confluent_kafka import Producer
+from confluent_kafka.admin import AdminClient
 
 KAFKA = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 DB_URL = os.getenv("DATABASE_URL", "postgresql://signal:signal@localhost:5432/signal")
+
+# Consumer groups that must be STABLE (have active members) for the pipeline to work
+_PIPELINE_GROUPS = ["scorer", "novelty-detector", "history-tracker-enriched-group"]
 
 
 def kafka_available() -> bool:
@@ -29,6 +33,25 @@ def db_available() -> bool:
 
 def stack_available() -> bool:
     return kafka_available() and db_available()
+
+
+def services_healthy() -> bool:
+    """Return True if all pipeline consumer groups have at least one active member.
+
+    A group with no members means the service is running but not consuming (zombie
+    state after a Kafka session timeout). The e2e test will hang for its full timeout
+    if this is not caught upfront.
+    """
+    try:
+        admin = AdminClient({"bootstrap.servers": KAFKA, "socket.timeout.ms": 3000})
+        futures = admin.describe_consumer_groups(_PIPELINE_GROUPS)
+        for group_id in _PIPELINE_GROUPS:
+            group = futures[group_id].result(timeout=5)
+            if not group.members:
+                return False
+        return True
+    except Exception:
+        return False
 
 
 def wait_for_recommendation(artist_name: str, timeout: int = 60) -> dict | None:

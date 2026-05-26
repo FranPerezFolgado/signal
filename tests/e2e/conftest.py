@@ -15,7 +15,7 @@ import psycopg
 import pytest
 from confluent_kafka import Producer
 
-from helpers import DB_URL, KAFKA, stack_available
+from helpers import DB_URL, KAFKA, services_healthy, stack_available
 
 ENRICHED_TOPIC = "tracks.enriched"
 
@@ -28,6 +28,11 @@ requires_stack = pytest.mark.skipif(
 @pytest.fixture(scope="function")
 def e2e_artist():
     """Pre-insert a test artist, emit a tracks.enriched event, yield ids, then tear down."""
+    if not services_healthy():
+        pytest.skip(
+            "Pipeline consumer groups not active — restart with 'make services-up'. "
+            "Tip: 'docker restart signal-scorer signal-novelty-detector signal-history-tracker'"
+        )
     run_id = uuid.uuid4().hex[:8]
     artist_name = f"e2e-artist-{run_id}"
     signal_id = f"e2e-{run_id}"
