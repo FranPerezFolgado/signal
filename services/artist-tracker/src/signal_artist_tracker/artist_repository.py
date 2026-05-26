@@ -24,7 +24,7 @@ SELECT id, name, external_ids
 FROM artists
 WHERE status = 'FOLLOWING'
   AND (last_similar_explored_at IS NULL
-       OR last_similar_explored_at < now() - make_interval(hours => %s))
+       OR last_similar_explored_at < now() - (%s * interval '1 hour'))
 ORDER BY last_similar_explored_at ASC NULLS FIRST
 """
 
