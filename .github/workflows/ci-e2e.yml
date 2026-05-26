@@ -21,10 +21,10 @@ jobs:
 
       - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb  # v5.4.2
 
+      - run: uv sync --frozen
+
       - name: Start infra (Kafka + PostgreSQL)
         run: docker compose -f infra/docker-compose.yml up -d
-        env:
-          COMPOSE_FILE: infra/docker-compose.yml
 
       - name: Wait for infra to be healthy
         run: |
@@ -33,7 +33,9 @@ jobs:
           timeout 60 bash -c 'until docker compose -f infra/docker-compose.yml ps | grep signal-postgres | grep -q healthy; do sleep 2; done'
 
       - name: Start pipeline services
-        run: docker compose -f infra/docker-compose.yml --profile services up -d
+        run: |
+          touch .env  # docker-compose requires the file to exist even if empty; real creds not needed in e2e
+          docker compose -f infra/docker-compose.yml --profile services up -d
         env:
           LASTFM_API_KEY: e2e-placeholder
           LASTFM_USERNAME: e2e-placeholder
@@ -53,8 +55,6 @@ jobs:
             done
           '
           sleep 5  # allow consumer group registration
-
-      - run: uv sync --frozen
 
       - name: Run e2e tests
         run: uv run pytest tests/e2e/ -q --timeout=90

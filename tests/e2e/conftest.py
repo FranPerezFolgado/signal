@@ -15,14 +15,9 @@ import psycopg
 import pytest
 from confluent_kafka import Producer
 
-from helpers import DB_URL, KAFKA, services_healthy, stack_available
+from helpers import DB_URL, KAFKA, services_healthy
 
 ENRICHED_TOPIC = "tracks.enriched"
-
-requires_stack = pytest.mark.skipif(
-    not stack_available(),
-    reason="Live stack not available — run 'make up && make services-up' first",
-)
 
 
 @pytest.fixture(scope="function")

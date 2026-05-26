@@ -59,7 +59,7 @@ def wait_for_recommendation(artist_name: str, timeout: int = 60) -> dict | None:
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            with psycopg.connect(DB_URL) as conn:
+            with psycopg.connect(DB_URL, connect_timeout=5) as conn:
                 row = conn.execute(
                     """
                     SELECT ar.score, ar.score_breakdown, ar.evidence_tracks
