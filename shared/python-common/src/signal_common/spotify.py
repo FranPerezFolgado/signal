@@ -78,7 +78,7 @@ class BaseSpotifyClient:
                 timeout=self._timeout,
             )
         except requests.Timeout:
-            raise SpotifyServiceError("request timed out")
+            raise SpotifyServiceError("request timed out") from None
         except requests.RequestException as exc:
             raise SpotifyServiceError(str(exc)) from exc
 
@@ -101,7 +101,7 @@ class BaseSpotifyClient:
                     timeout=self._timeout,
                 )
             except requests.Timeout:
-                raise SpotifyServiceError("request timed out after token refresh")
+                raise SpotifyServiceError("request timed out after token refresh") from None
             except requests.RequestException as exc:
                 raise SpotifyServiceError(str(exc)) from exc
             if resp.status_code == 200:
@@ -126,7 +126,7 @@ class BaseSpotifyClient:
                     timeout=self._timeout,
                 )
             except requests.Timeout:
-                raise SpotifyServiceError("request timed out after 429 retry")
+                raise SpotifyServiceError("request timed out after 429 retry") from None
             except requests.RequestException as exc:
                 raise SpotifyServiceError(str(exc)) from exc
             if resp.status_code == 200:

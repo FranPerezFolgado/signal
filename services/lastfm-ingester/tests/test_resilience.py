@@ -2,7 +2,6 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from signal_common.circuit_breaker import CircuitBreaker, CircuitOpenError, State
 from signal_common.rate_limiter import RateLimiter
 from signal_lastfm_ingester.client import LastfmClient

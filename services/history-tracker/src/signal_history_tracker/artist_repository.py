@@ -1,6 +1,5 @@
 import psycopg
 from psycopg.types.json import Jsonb
-
 from signal_common.logger import get_logger
 
 _log = get_logger(__name__)

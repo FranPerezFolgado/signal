@@ -1,4 +1,8 @@
-from signal_common.spotify import BaseSpotifyClient, SpotifyAuthError, SpotifyServiceError  # noqa: F401
+from signal_common.spotify import (  # noqa: F401
+    BaseSpotifyClient,
+    SpotifyAuthError,
+    SpotifyServiceError,
+)
 
 _API_BASE = "https://api.spotify.com/v1"
 

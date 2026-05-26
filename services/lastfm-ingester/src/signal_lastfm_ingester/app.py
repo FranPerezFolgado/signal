@@ -49,7 +49,9 @@ def _make_circuit_breaker(settings: Settings) -> CircuitBreaker:
 def run_polling(settings: Settings) -> None:
     rate_limiter = RateLimiter(settings.lastfm_rate_limit_per_30s)
     circuit_breaker = _make_circuit_breaker(settings)
-    client = LastfmClient(settings.lastfm_api_key, settings.lastfm_username, rate_limiter=rate_limiter)
+    client = LastfmClient(
+        settings.lastfm_api_key, settings.lastfm_username, rate_limiter=rate_limiter
+    )
     producer = KafkaJsonProducer(settings.kafka_bootstrap_servers, client_id=_SERVICE)
 
     stop = False
@@ -94,7 +96,9 @@ def run_polling(settings: Settings) -> None:
 def run_backfill(settings: Settings) -> None:
     rate_limiter = RateLimiter(settings.lastfm_rate_limit_per_30s)
     circuit_breaker = _make_circuit_breaker(settings)
-    client = LastfmClient(settings.lastfm_api_key, settings.lastfm_username, rate_limiter=rate_limiter)
+    client = LastfmClient(
+        settings.lastfm_api_key, settings.lastfm_username, rate_limiter=rate_limiter
+    )
     producer = KafkaJsonProducer(settings.kafka_bootstrap_servers, client_id=_SERVICE)
 
     _log.info("backfill_started")

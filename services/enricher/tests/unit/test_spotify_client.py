@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from signal_common.rate_limiter import RateLimiter
 from signal_common.spotify import SpotifyServiceError
 from signal_enricher.spotify_client import EnricherSpotifyClient
@@ -60,9 +59,11 @@ class TestGetArtistData:
         mock_resp = MagicMock()
         mock_resp.status_code = 500
         mock_resp.headers = {}
-        with patch("requests.get", return_value=mock_resp):
-            with pytest.raises(SpotifyServiceError):
-                client.get_artist_data("spotify:artist:abc1234567890ABCDE")
+        with (
+            patch("requests.get", return_value=mock_resp),
+            pytest.raises(SpotifyServiceError),
+        ):
+            client.get_artist_data("spotify:artist:abc1234567890ABCDE")
 
     def test_returns_none_for_none_uri(self, client):
         assert client.get_artist_data(None) is None
@@ -70,9 +71,11 @@ class TestGetArtistData:
     def test_raises_on_timeout(self, client):
         import requests as req
         _mock_token(client)
-        with patch("requests.get", side_effect=req.Timeout):
-            with pytest.raises(SpotifyServiceError):
-                client.get_artist_data("spotify:artist:abc1234567890ABCDE")
+        with (
+            patch("requests.get", side_effect=req.Timeout),
+            pytest.raises(SpotifyServiceError),
+        ):
+            client.get_artist_data("spotify:artist:abc1234567890ABCDE")
 
 
 class TestGetTrackData:
@@ -90,9 +93,11 @@ class TestGetTrackData:
     def test_raises_on_timeout(self, client):
         import requests as req
         _mock_token(client)
-        with patch("requests.get", side_effect=req.Timeout):
-            with pytest.raises(SpotifyServiceError):
-                client.get_track_data("spotify:track:track1234567890ABCDE")
+        with (
+            patch("requests.get", side_effect=req.Timeout),
+            pytest.raises(SpotifyServiceError),
+        ):
+            client.get_track_data("spotify:track:track1234567890ABCDE")
 
 
 class TestStripUriPrefix:
@@ -168,9 +173,8 @@ class TestRetryAfter:
         resp_500.status_code = 500
         resp_500.headers = {}
         with patch("requests.get", side_effect=[resp_429, resp_500]), \
-             patch("time.sleep"):
-            with pytest.raises(SpotifyServiceError):
-                client.get_artist_data("spotify:artist:abc1234567890ABCDE")
+             patch("time.sleep"), pytest.raises(SpotifyServiceError):
+            client.get_artist_data("spotify:artist:abc1234567890ABCDE")
 
     def test_rate_limiter_acquire_called_before_request(self, client_with_limiter):
         client, rl = client_with_limiter

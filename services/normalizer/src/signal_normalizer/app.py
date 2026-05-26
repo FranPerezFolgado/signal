@@ -32,7 +32,9 @@ def _is_valid(msg: dict) -> bool:
     )
 
 
-def _build_output(raw: dict, signal_id: str, artist_id: str | None, track_id: str | None, processed_at: str) -> dict:
+def _build_output(
+    raw: dict, signal_id: str, artist_id: str | None, track_id: str | None, processed_at: str
+) -> dict:
     source = raw.get("source", "lastfm")
     return {
         "signal_id": signal_id,
@@ -119,7 +121,12 @@ def run_consumer(settings: Settings) -> None:
                 continue
 
             consumer.commit()
-            _log.info("processed", signal_id=signal_id[:8], artist=artist, spotify_resolved=artist_id is not None)
+            _log.info(
+                "processed",
+                signal_id=signal_id[:8],
+                artist=artist,
+                spotify_resolved=artist_id is not None,
+            )
     finally:
         consumer.close()
 

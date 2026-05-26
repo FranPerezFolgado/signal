@@ -1,9 +1,7 @@
 import signal as _signal
 from unittest.mock import MagicMock, patch
 
-import pytest
 from signal_scorer.app import run_consumer
-
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +46,7 @@ def _run_loop(
 
     with (
         patch("signal_scorer.app.KafkaJsonConsumer") as MockConsumer,
-        patch("signal_scorer.app.KafkaJsonProducer") as MockProducer,
+        patch("signal_scorer.app.KafkaJsonProducer"),
         patch("signal_scorer.app.DlqPublisher") as MockDlq,
         patch("signal_scorer.app.lookup_artist") as mock_lookup,
         patch("signal_scorer.app.upsert_recommendation") as mock_upsert,

@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from signal_common.rate_limiter import RateLimiter
 from signal_common.spotify import SpotifyServiceError
 from signal_normalizer.spotify_client import SpotifyClient
@@ -61,18 +60,22 @@ class TestSearchTrack:
     def test_raises_on_timeout(self, client):
         import requests as req
         _mock_token(client)
-        with patch("requests.get", side_effect=req.Timeout):
-            with pytest.raises(SpotifyServiceError):
-                client.search_track("Actress", "Ascending")
+        with (
+            patch("requests.get", side_effect=req.Timeout),
+            pytest.raises(SpotifyServiceError),
+        ):
+            client.search_track("Actress", "Ascending")
 
     def test_raises_on_non_200(self, client):
         _mock_token(client)
         mock_resp = MagicMock()
         mock_resp.status_code = 500
         mock_resp.headers = {}
-        with patch("requests.get", return_value=mock_resp):
-            with pytest.raises(SpotifyServiceError):
-                client.search_track("Actress", "Ascending")
+        with (
+            patch("requests.get", return_value=mock_resp),
+            pytest.raises(SpotifyServiceError),
+        ):
+            client.search_track("Actress", "Ascending")
 
     def test_refreshes_token_on_401_then_retries(self, client):
         client._access_token = "expired_token"
@@ -104,9 +107,11 @@ class TestSearchTrack:
             call_count += 1
             raise req.Timeout
 
-        with patch("requests.get", side_effect=side_effect):
-            with pytest.raises(SpotifyServiceError):
-                client.search_track("Actress", "Ascending")
+        with (
+            patch("requests.get", side_effect=side_effect),
+            pytest.raises(SpotifyServiceError),
+        ):
+            client.search_track("Actress", "Ascending")
 
         assert call_count == 1
 
@@ -209,6 +214,5 @@ class TestRetryAfter:
         resp_500.status_code = 500
         resp_500.headers = {}
         with patch("requests.get", side_effect=[resp_429, resp_500]), \
-             patch("time.sleep"):
-            with pytest.raises(SpotifyServiceError):
-                client.search_track("X", "Y")
+             patch("time.sleep"), pytest.raises(SpotifyServiceError):
+            client.search_track("X", "Y")

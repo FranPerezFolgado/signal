@@ -1,7 +1,11 @@
 import re
 
 from signal_common.logger import get_logger
-from signal_common.spotify import BaseSpotifyClient, SpotifyAuthError, SpotifyServiceError  # noqa: F401
+from signal_common.spotify import (  # noqa: F401
+    BaseSpotifyClient,
+    SpotifyAuthError,
+    SpotifyServiceError,
+)
 
 _log = get_logger(__name__)
 

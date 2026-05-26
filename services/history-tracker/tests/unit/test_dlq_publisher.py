@@ -1,8 +1,7 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from signal_history_tracker.dlq_publisher import DlqPublisher
 
 _ERROR_REASONS = ["MALFORMED_JSON", "NULL_SIGNAL_ID", "DB_FAILURE", "KAFKA_EMIT_FAILURE"]

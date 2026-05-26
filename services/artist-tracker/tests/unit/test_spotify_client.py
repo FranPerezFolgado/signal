@@ -1,9 +1,8 @@
 from unittest.mock import patch
 
 import pytest
-
-from signal_common.spotify import SpotifyServiceError
 from signal_artist_tracker.spotify_client import SpotifyClient
+from signal_common.spotify import SpotifyServiceError
 
 
 def _make_client():
@@ -11,7 +10,9 @@ def _make_client():
     return client
 
 
-def _make_track_payload(name="Ascending", track_id="5CXokd", artist_name="Actress", artist_id="3G3Gdm4"):
+def _make_track_payload(
+    name="Ascending", track_id="5CXokd", artist_name="Actress", artist_id="3G3Gdm4"
+):
     return {
         "name": name,
         "id": track_id,
@@ -22,7 +23,9 @@ def _make_track_payload(name="Ascending", track_id="5CXokd", artist_name="Actres
 class TestGetTopTracks:
     def test_successful_response_returns_track_dicts(self):
         client = _make_client()
-        response = {"tracks": [_make_track_payload(), _make_track_payload(name="X", track_id="abc")]}
+        response = {
+            "tracks": [_make_track_payload(), _make_track_payload(name="X", track_id="abc")]
+        }
 
         with patch.object(client, "_get", return_value=response):
             tracks = client.get_top_tracks("spotify:artist:3G3Gdm4vNKHNf3jiRfPVzqt")
@@ -66,14 +69,18 @@ class TestGetTopTracks:
 
     def test_spotify_service_error_propagates(self):
         client = _make_client()
-        with patch.object(client, "_get", side_effect=SpotifyServiceError("timeout")):
-            with pytest.raises(SpotifyServiceError):
-                client.get_top_tracks("spotify:artist:3G3Gdm4")
+        with (
+            patch.object(client, "_get", side_effect=SpotifyServiceError("timeout")),
+            pytest.raises(SpotifyServiceError),
+        ):
+            client.get_top_tracks("spotify:artist:3G3Gdm4")
 
     def test_track_without_artists_is_skipped(self):
         client = _make_client()
         track_no_artists = {"name": "X", "id": "y", "artists": []}
-        with patch.object(client, "_get", return_value={"tracks": [track_no_artists, _make_track_payload()]}):
+        with patch.object(
+            client, "_get", return_value={"tracks": [track_no_artists, _make_track_payload()]}
+        ):
             tracks = client.get_top_tracks("spotify:artist:3G3Gdm4")
 
         assert len(tracks) == 1

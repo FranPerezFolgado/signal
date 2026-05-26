@@ -1,8 +1,6 @@
 import signal as _signal
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from signal_common.circuit_breaker import CircuitBreaker
 from signal_common.spotify import SpotifyServiceError
 from signal_normalizer.app import _INPUT_TOPICS, _build_output, _is_valid
@@ -27,14 +25,14 @@ class TestIsValid:
 
 class TestBuildOutput:
     def test_lastfm_source_sets_played_true(self):
-        raw = {"artist": "Actress", "title": "Ascending", "source": "lastfm", "played_at": "2026-01-01T00:00:00Z"}
-        out = _build_output(raw, "sig123", "spotify:artist:a1", "spotify:track:t1", "2026-01-01T00:01:00Z")
+        raw = {"artist": "Actress", "title": "Ascending", "source": "lastfm", "played_at": "2026-01-01T00:00:00Z"}  # noqa: E501
+        out = _build_output(raw, "sig123", "spotify:artist:a1", "spotify:track:t1", "2026-01-01T00:01:00Z")  # noqa: E501
         assert out["played"] is True
         assert out["sources"] == ["lastfm"]
 
     def test_spotify_source_sets_played_false(self):
         raw = {"artist": "Actress", "title": "Ascending", "source": "spotify", "played_at": None}
-        out = _build_output(raw, "sig123", "spotify:artist:a1", "spotify:track:t1", "2026-01-01T00:01:00Z")
+        out = _build_output(raw, "sig123", "spotify:artist:a1", "spotify:track:t1", "2026-01-01T00:01:00Z")  # noqa: E501
         assert out["played"] is False
 
     def test_default_source_is_lastfm(self):
@@ -49,8 +47,8 @@ class TestBuildOutput:
             assert forbidden not in out
 
     def test_v2_schema_exact_fields(self):
-        raw = {"artist": "Actress", "title": "Ascending", "source": "lastfm", "played_at": "2026-01-01T00:00:00Z"}
-        out = _build_output(raw, "sig123", "spotify:artist:a1", "spotify:track:t1", "2026-01-01T00:01:00Z")
+        raw = {"artist": "Actress", "title": "Ascending", "source": "lastfm", "played_at": "2026-01-01T00:00:00Z"}  # noqa: E501
+        out = _build_output(raw, "sig123", "spotify:artist:a1", "spotify:track:t1", "2026-01-01T00:01:00Z")  # noqa: E501
         assert set(out.keys()) == {
             "signal_id", "artist", "artist_id", "track_id",
             "title", "sources", "played", "played_at", "processed_at",
@@ -87,11 +85,10 @@ class TestCircuitBreakerIntegration:
 
         if cb.should_allow():
             try:
-                artist_id, track_id = spotify.search_track("X", "Y")
+                spotify.search_track("X", "Y")
                 cb.record_success()
             except SpotifyServiceError:
                 cb.record_failure()
-                artist_id, track_id = None, None
 
         assert not cb.is_open
 
@@ -115,7 +112,7 @@ class TestMultiTopicSubscription:
     def test_consumer_subscribes_to_both_topics(self):
         assert "raw.plays" in _INPUT_TOPICS
         assert "raw.tracks" in _INPUT_TOPICS
-        msg = {"artist": "Actress", "title": "Ascending", "source": "lastfm", "played_at": "2026-01-01T00:00:00Z"}
+        msg = {"artist": "Actress", "title": "Ascending", "source": "lastfm", "played_at": "2026-01-01T00:00:00Z"}  # noqa: E501
         _, consumer = self._run_one_message(msg)
         consumer.subscribe.assert_called_once_with(_INPUT_TOPICS)
 
@@ -184,7 +181,7 @@ class TestMultiTopicSubscription:
         assert out_msg["played"] is False
 
     def test_lastfm_source_produces_played_true(self):
-        msg = {"artist": "Actress", "title": "Ascending", "source": "lastfm", "played_at": "2026-01-01T00:00:00Z"}
+        msg = {"artist": "Actress", "title": "Ascending", "source": "lastfm", "played_at": "2026-01-01T00:00:00Z"}  # noqa: E501
         producer, _ = self._run_one_message(msg)
 
         producer.produce.assert_called_once()

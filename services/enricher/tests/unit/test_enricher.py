@@ -1,7 +1,5 @@
 import time
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from signal_common.circuit_breaker import State
 from signal_common.spotify import SpotifyServiceError

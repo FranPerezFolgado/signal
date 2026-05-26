@@ -31,6 +31,11 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = [
+  "B008",   # FastAPI Depends() in default args is idiomatic
+  "UP042",  # StrEnum migration — deferred to dedicated refactor
+  "UP046",  # PEP 695 type params — deferred to dedicated refactor
+]
 
 [tool.mypy]
 python_version = "3.12"

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from uuid import UUID
 
 import psycopg
@@ -103,18 +102,17 @@ class ArtistRepository:
         return rows, total
 
     def update_artist_status(self, artist_id: UUID, new_status: str) -> dict | None:
-        with self._conn.transaction():
-            with self._conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(
-                    """
+        with self._conn.transaction(), self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
                     UPDATE artists
                     SET status = %s
                     WHERE id = %s
                     RETURNING id, name, status
                     """,
-                    [new_status, str(artist_id)],
-                )
-                return cur.fetchone()
+                [new_status, str(artist_id)],
+            )
+            return cur.fetchone()
 
     @staticmethod
     def _build_artist_filters(

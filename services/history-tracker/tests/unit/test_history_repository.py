@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from signal_history_tracker.history_repository import HistoryRepository
 
 

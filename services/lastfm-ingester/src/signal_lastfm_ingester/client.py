@@ -2,7 +2,6 @@ import time
 from dataclasses import dataclass
 
 import requests
-
 from signal_common.rate_limiter import RateLimiter
 
 _BASE_URL = "http://ws.audioscrobbler.com/2.0/"
@@ -53,11 +52,10 @@ class LastfmClient:
         delay = 1.0
         for attempt in range(_MAX_RETRIES):
             response = requests.get(_BASE_URL, params=params, timeout=10)
-            if response.status_code in (429, 500, 502, 503, 504):
-                if attempt < _MAX_RETRIES - 1:
-                    time.sleep(delay)
-                    delay *= 2
-                    continue
+            if response.status_code in (429, 500, 502, 503, 504) and attempt < _MAX_RETRIES - 1:
+                time.sleep(delay)
+                delay *= 2
+                continue
             response.raise_for_status()
             return response.json()
         response.raise_for_status()

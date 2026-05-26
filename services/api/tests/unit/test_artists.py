@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
-_NOW = datetime(2026, 5, 25, 12, 0, 0, tzinfo=timezone.utc)
+_NOW = datetime(2026, 5, 25, 12, 0, 0, tzinfo=UTC)
 _ARTIST_ID = uuid4()
 
 
@@ -48,7 +48,9 @@ def test_get_artist_with_recommendation(client, mock_repo):
 
 
 def test_get_artist_without_recommendation(client, mock_repo):
-    row = _make_detail_row(score=None, score_breakdown=None, evidence_tracks=None, rec_updated_at=None)
+    row = _make_detail_row(
+        score=None, score_breakdown=None, evidence_tracks=None, rec_updated_at=None
+    )
     mock_repo.get_artist_by_id.return_value = row
     resp = client.get(f"/v1/artists/{_ARTIST_ID}")
     assert resp.status_code == 200

@@ -1,7 +1,7 @@
-import psycopg as _psycopg
 import signal as _signal
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
+import psycopg as _psycopg
 from signal_common.spotify import SpotifyServiceError
 
 
@@ -52,7 +52,11 @@ def _run_one_cycle(artists, tracks_by_artist=None, spotify_errors=None):
 
     def top_tracks_side_effect(artist_uri):
         name = next(
-            (a["name"] for a in artists if (a.get("external_ids") or {}).get("spotify") == artist_uri),
+            (
+                a["name"]
+                for a in artists
+                if (a.get("external_ids") or {}).get("spotify") == artist_uri
+            ),
             None,
         )
         if name in spotify_errors:
@@ -266,7 +270,9 @@ def test_mark_explored_db_failure_increments_failed_continues():
 
 def test_circuit_breaker_open_skips_artist():
     artist = _make_artist()
-    settings, artist_repo, spotify, producer, circuit_breaker = _make_run_cycle_mocks(artists=[artist])
+    settings, artist_repo, spotify, producer, circuit_breaker = _make_run_cycle_mocks(
+        artists=[artist]
+    )
     circuit_breaker.should_allow.return_value = False
 
     with patch("signal_artist_tracker.app.psycopg") as mock_psycopg:

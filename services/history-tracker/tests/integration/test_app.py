@@ -53,7 +53,9 @@ def _get_play_count(conn: psycopg.Connection, artist_name: str) -> int | None:
 
 def _get_scrobble_count(conn: psycopg.Connection, artist_name: str) -> int | None:
     with conn.cursor() as cur:
-        cur.execute("SELECT scrobble_count FROM artists WHERE LOWER(name) = LOWER(%s)", (artist_name,))
+        cur.execute(
+            "SELECT scrobble_count FROM artists WHERE LOWER(name) = LOWER(%s)", (artist_name,)
+        )
         row = cur.fetchone()
         return row[0] if row else None
 
@@ -160,8 +162,12 @@ def test_repeat_play_increments_scrobble_not_play_count(db):
         count = cur.fetchone()[0]
     assert count == 1, f"Expected 1 row in listening_history, got {count}"
 
-    assert (_get_play_count(db, "Radiohead") or 0) == before_play, "play_count must not increment on repeat"
-    assert (_get_scrobble_count(db, "Radiohead") or 0) == before_scrobble + 1, "scrobble_count must increment on repeat"
+    assert (
+        (_get_play_count(db, "Radiohead") or 0) == before_play
+    ), "play_count must not increment on repeat"
+    assert (
+        (_get_scrobble_count(db, "Radiohead") or 0) == before_scrobble + 1
+    ), "scrobble_count must increment on repeat"
 
 
 @pytest.mark.integration

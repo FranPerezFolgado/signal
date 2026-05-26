@@ -1,4 +1,3 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from signal_common.settings import CommonSettings
 
 

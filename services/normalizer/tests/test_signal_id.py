@@ -1,7 +1,6 @@
 import hashlib
 
 import pytest
-
 from signal_normalizer.signal_id import compute_signal_id, normalize_text
 
 
@@ -50,7 +49,7 @@ class TestComputeSignalId:
         assert compute_signal_id("Actress", "Ascending") == expected
 
     def test_spec_scenario_2_case_insensitive(self) -> None:
-        assert compute_signal_id("ACTRESS", "Ascending!") == compute_signal_id("Actress", "Ascending")
+        assert compute_signal_id("ACTRESS", "Ascending!") == compute_signal_id("Actress", "Ascending")  # noqa: E501
 
     def test_unicode_preserved(self) -> None:
         expected = hashlib.sha256("sigur rós ára bátur".encode()).hexdigest()

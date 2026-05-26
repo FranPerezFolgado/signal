@@ -3,7 +3,6 @@ import logging
 import pytest
 from signal_scorer.scoring import compute_score, validate_message
 
-
 # ─── validate_message ─────────────────────────────────────────────────────────
 
 

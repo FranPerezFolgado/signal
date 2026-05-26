@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from signal_enricher.lastfm_client import LastfmFallbackClient
 
 

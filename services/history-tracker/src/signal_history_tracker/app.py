@@ -1,7 +1,6 @@
 import signal
 
 import psycopg
-
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
@@ -34,7 +33,9 @@ def run_consumer(settings: Settings) -> None:
         _CLIENT_ID,
     )
     output_producer = KafkaJsonProducer(settings.kafka_bootstrap_servers, client_id=_CLIENT_ID)
-    dlq_producer = KafkaJsonProducer(settings.kafka_bootstrap_servers, client_id=f"{_CLIENT_ID}-dlq")
+    dlq_producer = KafkaJsonProducer(
+        settings.kafka_bootstrap_servers, client_id=f"{_CLIENT_ID}-dlq"
+    )
     history_repo = HistoryRepository()
     artist_repo = ArtistRepository()
     dlq = DlqPublisher(dlq_producer, _DLQ_TOPIC)
@@ -82,7 +83,7 @@ def run_consumer(settings: Settings) -> None:
                 try:
                     inserted = history_repo.upsert(conn, raw)
                     artist_repo.upsert(conn, raw, new_track=inserted)
-                except Exception as exc:
+                except Exception:
                     _log.error("db_error", signal_id=str(raw["signal_id"])[:8], exc_info=True)
                     conn.rollback()
                     dlq.publish("DB_FAILURE", "database error", raw)
@@ -94,7 +95,9 @@ def run_consumer(settings: Settings) -> None:
                     output_producer.produce(_OUTPUT_TOPIC, raw, key=raw["signal_id"])
                     unflushed = output_producer.flush(timeout=10.0)
                 except Exception as exc:
-                    _log.error("kafka_produce_error", signal_id=str(raw["signal_id"])[:8], error=str(exc))
+                    _log.error(
+                        "kafka_produce_error", signal_id=str(raw["signal_id"])[:8], error=str(exc)
+                    )
                     conn.rollback()
                     dlq.publish("KAFKA_EMIT_FAILURE", "produce error", raw)
                     consumer.commit()

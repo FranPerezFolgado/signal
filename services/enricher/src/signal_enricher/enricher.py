@@ -5,9 +5,10 @@ from signal_common.circuit_breaker import CircuitBreaker
 from signal_common.logger import get_logger
 from signal_common.rate_limiter import RateLimiter
 from signal_common.spotify import SpotifyServiceError
+
 from signal_enricher.lastfm_client import LastfmFallbackClient
-from signal_enricher.spotify_client import EnricherSpotifyClient
 from signal_enricher.settings import Settings
+from signal_enricher.spotify_client import EnricherSpotifyClient
 
 _log = get_logger(__name__)
 
@@ -48,7 +49,8 @@ class Enricher:
         """Attempt Spotify enrichment with exponential backoff + jitter.
         SpotifyServiceError (transport/auth failures) triggers retries.
         record_failure is called only once, after all retries are exhausted.
-        Returns None without recording failure when an ID is invalid (None from _strip_uri_prefix)."""
+        Returns None without recording failure when an ID is invalid (None from _strip_uri_prefix).
+        """
         for attempt in range(3):
             try:
                 artist_data = self._spotify.get_artist_data(artist_id)

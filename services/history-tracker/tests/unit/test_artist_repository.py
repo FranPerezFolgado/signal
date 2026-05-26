@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from signal_history_tracker.artist_repository import ArtistRepository
 
 

@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
-_NOW = datetime(2026, 5, 25, 12, 0, 0, tzinfo=timezone.utc)
+_NOW = datetime(2026, 5, 25, 12, 0, 0, tzinfo=UTC)
 
 
 def _make_row(name="Artist", score=0.5, status="FOLLOWING", **kwargs):
@@ -69,7 +69,9 @@ def test_pagination_metadata(client, mock_repo):
     assert body["page_size"] == 3
     assert body["total"] == 50
     assert body["pages"] == 17
-    mock_repo.list_recommendations.assert_called_once_with(page=2, page_size=3, include_following=False)
+    mock_repo.list_recommendations.assert_called_once_with(
+        page=2, page_size=3, include_following=False
+    )
 
 
 def test_invalid_page_returns_422(client, mock_repo):
@@ -101,13 +103,17 @@ def test_null_score_breakdown(client, mock_repo):
 def test_following_excluded_by_default(client, mock_repo):
     mock_repo.list_recommendations.return_value = ([], 0)
     client.get("/v1/recommendations")
-    mock_repo.list_recommendations.assert_called_once_with(page=1, page_size=20, include_following=False)
+    mock_repo.list_recommendations.assert_called_once_with(
+        page=1, page_size=20, include_following=False
+    )
 
 
 def test_include_following_param_passed_through(client, mock_repo):
     mock_repo.list_recommendations.return_value = ([], 0)
     client.get("/v1/recommendations?include_following=true")
-    mock_repo.list_recommendations.assert_called_once_with(page=1, page_size=20, include_following=True)
+    mock_repo.list_recommendations.assert_called_once_with(
+        page=1, page_size=20, include_following=True
+    )
 
 
 def test_score_breakdown_as_json_string(client, mock_repo):

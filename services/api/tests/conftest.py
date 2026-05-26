@@ -2,7 +2,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-
 from signal_api.app import create_app
 from signal_api.deps import get_db
 
