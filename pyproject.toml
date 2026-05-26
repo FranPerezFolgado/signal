@@ -16,6 +16,7 @@ managed = true
 [dependency-groups]
 dev = [
   "pytest>=8",
+  "pytest-timeout>=2.3",
   "pytest-asyncio>=0.23",
   "pytest-mock>=3.14",
   "pytest-timeout>=2.3",
