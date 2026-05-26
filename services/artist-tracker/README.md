@@ -2,24 +2,36 @@
 
 [![CI](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-artist-tracker.yml/badge.svg)](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-artist-tracker.yml)
 
-Polls Spotify for the top tracks of all `FOLLOWING` artists and emits them to `raw.tracks`, feeding the normaliser to discover new releases via the listening pipeline.
+Polls Spotify for the top tracks of all `FOLLOWING` artists and performs 1-hop similarity expansion via Last.fm to discover new artists. Feeds the normaliser pipeline and the `artist.discovered` topic.
 
 ## Topics
 
 | Direction | Topic | Notes |
 |-----------|-------|-------|
 | Produces  | `raw.tracks` | One message per track; same schema as `raw.plays` |
+| Produces  | `artist.discovered` | One message per newly inserted similar artist (source: `LASTFM_SIMILAR`) |
 
 ## How it works
 
-On each polling cycle the tracker:
+The service runs two independent polling cycles sharing a single process:
 
-1. Queries PostgreSQL for `FOLLOWING` artists whose `last_explored_at` is older than `ARTIST_REEXPLORE_DAYS` (or never explored).
+**Top-tracks cycle** (every `ARTIST_TRACKER_INTERVAL_HOURS`):
+
+1. Queries PostgreSQL for `FOLLOWING` artists whose `last_explored_at` is older than `ARTIST_REEXPLORE_DAYS`.
 2. Fetches the artist's top tracks from Spotify.
-3. Emits each track to `raw.tracks`, which is consumed by the normaliser.
+3. Emits each track to `raw.tracks`.
 4. Marks the artist as explored (`last_explored_at = now()`).
 
-The cycle repeats every `ARTIST_TRACKER_INTERVAL_HOURS`. Artists are processed in ascending `last_explored_at` order so long-unvisited artists are prioritised.
+**Similar-artist expansion cycle** (every `LASTFM_SIMILAR_INTERVAL_HOURS`):
+
+1. Queries PostgreSQL for `FOLLOWING` artists whose `last_similar_explored_at` has expired.
+2. Calls `Last.fm artist.getSimilar` for each artist.
+3. Deduplicates by Last.fm MBID (`external_ids->>'lastfm_mbid'`); falls back to name uniqueness.
+4. Inserts new artists as `TRACKED` with `source='LASTFM_SIMILAR'` and `origin_artist_id` FK.
+5. Emits an `artist.discovered` event for each new insertion.
+6. Marks the artist as similar-explored only on success.
+
+Both cycles fire immediately on startup. A single `time.monotonic()` deadline per cycle ensures they run independently without blocking each other.
 
 ## Configuration
 
@@ -35,6 +47,10 @@ The cycle repeats every `ARTIST_TRACKER_INTERVAL_HOURS`. Artists are processed i
 | `ARTIST_TRACKER_RATE_LIMIT_PER_30S` | `30` | Max Spotify calls per 30-second window |
 | `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `5` | Failures before Spotify circuit opens |
 | `CIRCUIT_BREAKER_TIMEOUT_S` | `60.0` | Circuit open duration (seconds) |
+| `LASTFM_API_KEY` | — | Required; Last.fm API key |
+| `LASTFM_SIMILAR_INTERVAL_HOURS` | `24.0` | Hours between similarity expansion cycles |
+| `LASTFM_SIMILAR_LIMIT` | `10` | Max similar artists to fetch per artist |
+| `LASTFM_SIMILAR_RATE_LIMIT_PER_30S` | `150` | Max Last.fm calls per 30-second window |
 
 ## Running locally
 
