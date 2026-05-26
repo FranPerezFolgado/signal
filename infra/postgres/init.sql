@@ -31,11 +31,18 @@ CREATE TABLE IF NOT EXISTS artists (
   play_count       INT DEFAULT 0,
   added_at         TIMESTAMPTZ DEFAULT now(),
   first_seen_at    TIMESTAMPTZ DEFAULT now(),
-  last_explored_at TIMESTAMPTZ
+  last_explored_at          TIMESTAMPTZ,
+  last_similar_explored_at  TIMESTAMPTZ,
+  origin_artist_id          UUID REFERENCES artists(id) ON DELETE SET NULL
 );
 
 -- Unique artist identity: normalised name ensures idempotent upserts from history-tracker
 CREATE UNIQUE INDEX IF NOT EXISTS idx_artists_name_lower ON artists (LOWER(name));
+
+-- Supports MBID-based deduplication in similar-artist expansion
+CREATE INDEX IF NOT EXISTS idx_artists_lastfm_mbid
+  ON artists ((external_ids->>'lastfm_mbid'))
+  WHERE external_ids->>'lastfm_mbid' IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS artist_recommendations (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
