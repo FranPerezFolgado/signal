@@ -14,3 +14,8 @@ class Settings(CommonSettings):
     spotify_retry_after_max_s: float = 60.0
     circuit_breaker_failure_threshold: int = 5
     circuit_breaker_timeout_s: float = 60.0
+    lastfm_api_key: str  # Required: Last.fm API key for artist.getSimilar expansion
+    lastfm_similar_interval_hours: float = 24.0
+    lastfm_similar_limit: int = 10
+    lastfm_similar_rate_limit_per_30s: int = 150
+    kafka_discovered_topic: str = "artist.discovered"
