@@ -2,10 +2,10 @@ FROM oven/bun:1
 
 WORKDIR /app
 
-COPY package.json bunfig.toml ./
+COPY services/dashboard/package.json services/dashboard/bunfig.toml services/dashboard/bun.lock ./
 RUN bun install --frozen-lockfile
 
-COPY . .
+COPY services/dashboard/ .
 
 EXPOSE 5173
 
