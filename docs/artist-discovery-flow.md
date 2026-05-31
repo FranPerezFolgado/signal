@@ -33,28 +33,28 @@ ORDER BY a.added_at DESC;
 
 ---
 
-## Gap: no consumer for `artist.discovered` (v3 pending)
+## `artist.discovered` — event log for future consumers
 
-`artist.discovered` events are produced to Kafka but nothing consumes them yet. The topic exists and messages are delivered, but no service acts on them.
+`artist.discovered` events are produced to Kafka as an append-only audit trail. No service consumes them in v3 — that is intentional.
 
-A future **auto-promoter** service would consume `artist.discovered` and immediately promote new artists from `TRACKED` to `FOLLOWING`, closing the discovery loop without waiting for organic listens.
+The discovery loop closes at the **TRACKED queue**: newly discovered artists appear in the DB as `TRACKED` for manual review. Auto-promotion was considered and rejected — promoting everything to `FOLLOWING` would bypass curation and flood the recommendations table with unvetted artists.
+
+Future consumers (v6 curators) will use this topic to calculate curator precision metrics.
 
 ---
 
-## ② Promotion path (current behaviour)
+## ② Promotion path
 
-Without the auto-promoter, a `LASTFM_SIMILAR` artist reaches `FOLLOWING` organically:
+A `LASTFM_SIMILAR` artist reaches `FOLLOWING` via one of two paths:
+
+**Manual** (primary): browse `GET /artists?status=TRACKED&source=LASTFM_SIMILAR` in the API and promote via `PATCH /artists/{id}/status { "status": "FOLLOWING" }`.
+
+**Organic**: the user listens to the artist on Last.fm:
 
 1. The user encounters and listens to the artist on Last.fm.
 2. `lastfm-ingester` picks up the scrobbles → `raw.plays` → `normalizer` → `enricher` → `history-tracker` persists the plays.
 3. Once `play_count ≥ AUTO_FOLLOW_PLAYS` (default 3), `novelty-detector` auto-promotes the artist to `FOLLOWING`.
 4. The artist is now eligible for the **top-tracks cycle**.
-
-Alternatively, any artist can be promoted manually via the API:
-
-```
-PATCH /artists/{id}/status  body: {"status": "FOLLOWING"}
-```
 
 ---
 
