@@ -4,6 +4,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from psycopg_pool import ConnectionPool
 from signal_common.logger import get_logger
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -73,6 +74,12 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(RequestLogMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_methods=["GET", "PATCH", "OPTIONS"],
+        allow_headers=["Content-Type"],
+    )
 
     instrument_app(app)
 

@@ -29,6 +29,9 @@ class ArtistListItem(BaseModel):
     high_priority: bool
     scrobble_count: int
     genres: list[str]
+    source: str | None = None
+    origin_artist_id: UUID | None = None
+    origin_artist_name: str | None = None
 
 
 class ArtistDetail(ArtistListItem):
@@ -47,6 +50,7 @@ class RecommendationListItem(BaseModel):
     score: float
     breakdown: ScoreBreakdown | None
     evidence_tracks: list[str]
+    spotify_id: str | None
     updated_at: datetime
 
 

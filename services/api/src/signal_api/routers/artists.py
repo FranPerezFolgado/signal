@@ -30,6 +30,9 @@ def _to_artist_list_item(row: dict) -> ArtistListItem:
         high_priority=row["high_priority"],
         scrobble_count=row["scrobble_count"],
         genres=row["genres"] or [],
+        source=row.get("source"),
+        origin_artist_id=row.get("origin_artist_id"),
+        origin_artist_name=row.get("origin_artist_name"),
     )
 
 
