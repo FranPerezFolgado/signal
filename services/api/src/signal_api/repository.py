@@ -84,7 +84,13 @@ class ArtistRepository:
                     a.external_ids->>'spotify' AS spotify_uri,
                     r.score, r.score_breakdown, r.updated_at,
                     (
-                        SELECT COALESCE(jsonb_agg(COALESCE(lh.title, e)), '[]'::jsonb)
+                        SELECT COALESCE(jsonb_agg(
+                            CASE
+                                WHEN lh.title IS NOT NULL
+                                THEN lh.artist || ' — ' || lh.title
+                                ELSE e
+                            END
+                        ), '[]'::jsonb)
                         FROM jsonb_array_elements_text(r.evidence_tracks) e
                         LEFT JOIN listening_history lh ON lh.signal_id = e
                     ) AS evidence_tracks
