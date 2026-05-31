@@ -38,7 +38,7 @@ jobs:
           working-directory: services/novelty-detector
 
       - name: Unit tests
-        run: go test ./tests/unit/... -v -race -timeout 60s
+        run: go test ./... -v -race -timeout 60s
 
   integration-test:
     name: Integration Tests
@@ -60,7 +60,7 @@ jobs:
         run: sudo apt-get install -y librdkafka-dev pkg-config
 
       - name: Integration tests
-        run: go test ./tests/integration/... -v -timeout 180s
+        run: go test -tags integration ./internal/consumer/ -v -timeout 180s
 
   docker-build:
     name: Docker Build

@@ -8,8 +8,9 @@ WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY *.go ./
-RUN go build -tags musl -o novelty-detector .
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+RUN go build -tags musl -o novelty-detector ./cmd/novelty-detector/
 
 # Stage 2 — runtime: minimal Alpine image with librdkafka
 FROM alpine:3.20

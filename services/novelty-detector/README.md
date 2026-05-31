@@ -58,13 +58,29 @@ When a `TRACKED` artist accumulates scrobbles equal to or exceeding `AUTO_FOLLOW
 | `AUTO_FOLLOW_PLAYS` | `3` | Scrobble threshold for auto-promotion to `FOLLOWING` |
 | `KAFKA_FLUSH_TIMEOUT_MS` | `10000` | Max ms to wait for Kafka flush before skipping commit |
 
+## Project layout
+
+```
+novelty-detector/
+├── cmd/novelty-detector/   # main package — wires deps, handles OS signals
+├── internal/
+│   ├── config/             # environment-based configuration
+│   ├── consumer/           # core processing loop + tests
+│   ├── dlq/                # dead-letter queue publisher
+│   ├── kafka/              # Consumer/Producer interfaces + confluent wrappers
+│   ├── novelty/            # Compute/ShouldEmit pure logic + unit tests
+│   └── repository/         # pgx implementations of ArtistRepo/NoveltyRepo
+├── Dockerfile
+└── go.mod
+```
+
 ## Build
 
 Requires Go 1.22+ and `librdkafka-dev` (for `confluent-kafka-go`):
 
 ```bash
 cd services/novelty-detector
-go build -tags musl -o novelty-detector .
+go build -tags musl -o novelty-detector ./cmd/novelty-detector/
 ```
 
 ## Unit tests
@@ -80,7 +96,7 @@ Requires Docker (testcontainers-go spins up Kafka and PostgreSQL automatically):
 
 ```bash
 cd services/novelty-detector
-go test -tags integration -v ./...
+go test -tags integration ./internal/consumer/ -v -timeout 180s
 ```
 
 ## Running locally

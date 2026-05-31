@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 	"strconv"
 )
 
-// Config holds all runtime configuration loaded from environment variables.
 type Config struct {
 	KafkaBootstrapServers string
 	DatabaseURL           string
@@ -16,9 +15,7 @@ type Config struct {
 	KafkaFlushTimeoutMs   int
 }
 
-// LoadConfig reads configuration from environment variables. Returns an error
-// if any required variable is missing.
-func LoadConfig() (Config, error) {
+func Load() (Config, error) {
 	brokers := os.Getenv("KAFKA_BOOTSTRAP_SERVERS")
 	if brokers == "" {
 		brokers = "localhost:9092"
@@ -45,6 +42,9 @@ func LoadConfig() (Config, error) {
 		if err != nil {
 			return Config{}, fmt.Errorf("AUTO_FOLLOW_PLAYS must be an integer: %w", err)
 		}
+		if n < 1 {
+			return Config{}, fmt.Errorf("AUTO_FOLLOW_PLAYS must be >= 1, got %d", n)
+		}
 		autoFollow = n
 	}
 
@@ -53,6 +53,9 @@ func LoadConfig() (Config, error) {
 		n, err := strconv.Atoi(v)
 		if err != nil {
 			return Config{}, fmt.Errorf("KAFKA_FLUSH_TIMEOUT_MS must be an integer: %w", err)
+		}
+		if n < 1 {
+			return Config{}, fmt.Errorf("KAFKA_FLUSH_TIMEOUT_MS must be >= 1, got %d", n)
 		}
 		flushMs = n
 	}
