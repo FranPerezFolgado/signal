@@ -1,0 +1,71 @@
+name: novelty-detector
+
+on:
+  push:
+    paths:
+      - 'services/novelty-detector/**'
+  pull_request:
+    paths:
+      - 'services/novelty-detector/**'
+
+jobs:
+  lint-and-test:
+    name: Lint & Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/novelty-detector
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+          cache-dependency-path: services/novelty-detector/go.sum
+
+      - name: Install librdkafka
+        run: sudo apt-get install -y librdkafka-dev pkg-config
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: services/novelty-detector
+
+      - name: Unit tests
+        run: go test ./tests/unit/... -v -race -timeout 60s
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/novelty-detector
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+          cache-dependency-path: services/novelty-detector/go.sum
+
+      - name: Install librdkafka
+        run: sudo apt-get install -y librdkafka-dev pkg-config
+
+      - name: Integration tests
+        run: go test ./tests/integration/... -v -timeout 180s
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t signal/novelty-detector:${{ github.sha }} services/novelty-detector/

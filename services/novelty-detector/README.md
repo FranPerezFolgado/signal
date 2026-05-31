@@ -1,8 +1,8 @@
 # novelty-detector
 
-[![CI](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-novelty-detector.yml/badge.svg)](https://github.com/FranPerezFolgado/signal/actions/workflows/ci-novelty-detector.yml)
+[![CI](https://github.com/FranPerezFolgado/signal/actions/workflows/novelty-detector.yml/badge.svg)](https://github.com/FranPerezFolgado/signal/actions/workflows/novelty-detector.yml)
 
-Consumes enriched tracks from `tracks.enriched`, cross-references them against the listening history and artist table in PostgreSQL, and emits a novelty event to `tracks.novel` whenever an artist or genre is new.
+Consumes enriched tracks from `tracks.enriched`, cross-references them against the listening history and artist table in PostgreSQL, and emits a novelty event to `tracks.novel` whenever an artist or genre is new. Written in Go.
 
 ## Topics
 
@@ -18,9 +18,9 @@ For each enriched track the detector checks:
 
 1. **Artist is new** — the artist has not appeared in the listening history before.
 2. **New genres** — one or more of the track's genres have never been seen in the listening history.
-3. **Track is new** — the specific `signal_id` (artist + title hash) has not been seen before.
+3. **Track is new** — the specific `signal_id` has not been seen before.
 
-A track is emitted to `tracks.novel` if condition 1 or 2 is true. Tracks where `pending_enrichment: true` are skipped entirely and not sent to the DLQ.
+A track is emitted to `tracks.novel` if condition 1 or 2 is true. Tracks where `pending_enrichment: true` are skipped silently (not DLQ'd).
 
 ## Message schema (`tracks.novel`)
 
@@ -45,32 +45,54 @@ A track is emitted to `tracks.novel` if condition 1 or 2 is true. Tracks where `
 
 ## Artist auto-promotion
 
-When a `TRACKED` artist accumulates scrobbles equal to or exceeding `AUTO_FOLLOW_PLAYS`, the detector promotes them to `FOLLOWING` in the same database transaction. A DB failure logs a warning and rolls back the promotion without blocking the novelty event.
+When a `TRACKED` artist accumulates scrobbles equal to or exceeding `AUTO_FOLLOW_PLAYS`, the detector promotes them to `FOLLOWING`. A DB failure during promotion logs a warning and does not block the novelty event (best-effort).
 
 ## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker |
-| `DATABASE_URL` | `postgresql://signal:signal@localhost:5432/signal` | PostgreSQL DSN (required) |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker address |
+| `DATABASE_URL` | — | PostgreSQL DSN (required) |
+| `KAFKA_CONSUMER_GROUP` | `novelty-detector-group` | Consumer group ID |
+| `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARN`, `ERROR`) |
 | `AUTO_FOLLOW_PLAYS` | `3` | Scrobble threshold for auto-promotion to `FOLLOWING` |
+| `KAFKA_FLUSH_TIMEOUT_MS` | `10000` | Max ms to wait for Kafka flush before skipping commit |
+
+## Build
+
+Requires Go 1.22+ and `librdkafka-dev` (for `confluent-kafka-go`):
+
+```bash
+cd services/novelty-detector
+go build -tags musl -o novelty-detector .
+```
+
+## Unit tests
+
+```bash
+cd services/novelty-detector
+go test ./...
+```
+
+## Integration tests
+
+Requires Docker (testcontainers-go spins up Kafka and PostgreSQL automatically):
+
+```bash
+cd services/novelty-detector
+go test -tags integration -v ./...
+```
 
 ## Running locally
 
 ```bash
-make novelty-detector-up
-make novelty-detector-logs
+make up          # starts Kafka + PostgreSQL
+# set DATABASE_URL, then:
+./novelty-detector
 ```
 
-## Tests
+Or via Docker Compose (the `infra/docker-compose.yml` entry builds this Dockerfile):
 
 ```bash
-cd services/novelty-detector
-uv run pytest tests/unit/ -q
-```
-
-Integration tests require a live stack (`make up`) and auto-skip otherwise:
-
-```bash
-uv run pytest tests/integration/ -q
+make up
 ```
