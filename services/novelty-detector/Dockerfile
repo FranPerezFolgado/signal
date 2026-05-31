@@ -5,11 +5,11 @@ RUN apk add --no-cache gcc musl-dev librdkafka-dev pkgconfig
 
 WORKDIR /build
 
-COPY go.mod go.sum ./
+COPY services/novelty-detector/go.mod services/novelty-detector/go.sum ./
 RUN go mod download
 
-COPY cmd/ ./cmd/
-COPY internal/ ./internal/
+COPY services/novelty-detector/cmd/ ./cmd/
+COPY services/novelty-detector/internal/ ./internal/
 RUN go build -tags musl -o novelty-detector ./cmd/novelty-detector/
 
 # Stage 2 — runtime: minimal Alpine image with librdkafka
