@@ -9,6 +9,9 @@ members = [
     "services/*",
     "shared/python-common"
 ]
+exclude = [
+    "services/novelty-detector"
+]
 
 [tool.uv]
 managed = true
