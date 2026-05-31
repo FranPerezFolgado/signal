@@ -1,0 +1,184 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Signal v2 — Refined Brutalist Industrial.
+ * Concrete & Hazard palette. Space Mono + Rubik. Hard edges, no glow, no blur.
+ */
+
+@theme inline {
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-signal-orange: var(--signal-orange);
+  --color-signal-green: var(--signal-green);
+  --color-signal-red: var(--signal-red);
+  --color-signal-amber: var(--signal-amber);
+  --color-border-strong: var(--border-strong);
+  --color-panel: var(--panel);
+  --color-panel-raised: var(--panel-raised);
+
+  --font-mono:
+    "Space Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans:
+    "Rubik", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  --radius: 0px;
+
+  /* Concrete & Hazard — dark */
+  --background: #1a1a1a;
+  --foreground: #e6e6e6;
+
+  --panel: #222222;
+  --panel-raised: #2a2a2a;
+
+  --card: #222222;
+  --card-foreground: #e6e6e6;
+  --popover: #222222;
+  --popover-foreground: #e6e6e6;
+
+  --primary: #ff5b00;                  /* Hazard */
+  --primary-foreground: #0a0a0a;
+  --secondary: #2a2a2a;
+  --secondary-foreground: #e6e6e6;
+  --muted: #2a2a2a;
+  --muted-foreground: #9a9a9a;
+  --accent: #2a2a2a;
+  --accent-foreground: #e6e6e6;
+
+  --destructive: #c1272d;
+  --destructive-foreground: #fafafa;
+
+  --border: #3d3d3d;
+  --border-strong: #5a5a5a;
+  --input: #3d3d3d;
+  --ring: #ff5b00;
+
+  --chart-1: #ff5b00;
+  --chart-2: #9a9a9a;
+  --chart-3: #5a5a5a;
+  --chart-4: #c1272d;
+  --chart-5: #e6e6e6;
+
+  --signal-orange: #ff5b00;
+  --signal-green: #e6e6e6;            /* data is plain, no CRT */
+  --signal-red: #c1272d;
+  --signal-amber: #ff5b00;
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Numerics, metadata, badges, headings → mono */
+  .mono,
+  code,
+  kbd,
+  samp {
+    font-family: var(--font-mono);
+  }
+
+  ::selection {
+    background: var(--signal-orange);
+    color: #0a0a0a;
+  }
+}
+
+@layer utilities {
+  .text-signal-orange { color: var(--signal-orange); }
+  .text-signal-green { color: var(--signal-green); }
+  .text-signal-red { color: var(--signal-red); }
+  .bg-signal-orange { background-color: var(--signal-orange); }
+  .bg-signal-green { background-color: var(--signal-green); }
+  .bg-signal-red { background-color: var(--signal-red); }
+  .border-signal-orange { border-color: var(--signal-orange); }
+  .border-signal-green { border-color: var(--signal-green); }
+  .border-signal-red { border-color: var(--signal-red); }
+  .border-border-strong { border-color: var(--border-strong); }
+  .bg-panel { background-color: var(--panel); }
+  .bg-panel-raised { background-color: var(--panel-raised); }
+
+  /* Brutalist primitives */
+  .faceplate {
+    background-color: var(--panel);
+    border: 1px solid var(--border);
+  }
+  .faceplate-raised {
+    background-color: var(--panel-raised);
+    border: 1px solid var(--border);
+  }
+  .rule {
+    border-top: 1px solid var(--border);
+  }
+  .rule-strong {
+    border-top: 1px solid var(--border-strong);
+  }
+  .row-hover:hover {
+    background-color: var(--panel-raised);
+  }
+  .slug {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted-foreground);
+    font-size: 11px;
+  }
+  /* Backwards-compat: legacy classes still referenced reduce to plain panel */
+  .frosted {
+    background-color: var(--panel);
+    border-color: var(--border);
+  }
+  .crt-glow {
+    text-shadow: none;
+  }
+}

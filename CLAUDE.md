@@ -60,5 +60,5 @@ Active collection: `signal`
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/013-go-novelty-detector/plan.md`
+`specs/014-dashboard/plan.md`
 <!-- SPECKIT END -->
