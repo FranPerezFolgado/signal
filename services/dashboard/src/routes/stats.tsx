@@ -570,7 +570,7 @@ function ExplorationCoverageSection() {
             <span>{(data.total - data.explored).toLocaleString()} PENDING</span>
           </div>
           <p className="mono text-[9px] text-muted-foreground tracking-[0.1em]">
-            NON-BLACKLISTED ARTISTS WITH last_explored_at SET
+            FOLLOWING ARTISTS WITH SIMILAR-ARTIST EXPANSION COMPLETE
           </p>
         </div>
       )}

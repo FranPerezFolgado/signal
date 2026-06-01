@@ -10,7 +10,7 @@ from signal_common.circuit_breaker import CircuitBreaker
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
 from signal_common.rate_limiter import RateLimiter
-from signal_common.spotify import SpotifyServiceError
+from signal_common.spotify import SpotifyResourceError, SpotifyServiceError
 
 from signal_artist_tracker.artist_repository import ArtistRepository
 from signal_artist_tracker.lastfm_client import LastfmSimilarClient, SimilarArtist
@@ -236,6 +236,10 @@ def _run_cycle(
         try:
             tracks = spotify.get_top_tracks(external_ids["spotify"])
             circuit_breaker.record_success()
+        except SpotifyResourceError as exc:
+            _log.warning("artist_spotify_skipped", artist=artist_name, error=str(exc))
+            skipped += 1
+            continue
         except SpotifyServiceError as exc:
             _log.error("artist_spotify_error", artist=artist_name, error=str(exc))
             circuit_breaker.record_failure()

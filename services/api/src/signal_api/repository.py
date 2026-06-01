@@ -388,9 +388,9 @@ class StatsRepository:
                 """
                 SELECT
                     COUNT(*) AS total,
-                    COUNT(last_explored_at) AS explored
+                    COUNT(last_similar_explored_at) AS explored
                 FROM artists
-                WHERE status NOT IN ('BLACKLISTED')
+                WHERE status = 'FOLLOWING'
                 """
             )
             row = cur.fetchone()
