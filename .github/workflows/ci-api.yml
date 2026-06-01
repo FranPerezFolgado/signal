@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb  # v5.4.2
-      - run: uv sync --frozen
+      - run: uv sync --frozen --package signal-api
       - run: uv run ruff check services/api/
       - run: uv run mypy services/api/src/
       - run: uv run pytest services/api/tests/unit/ -q
