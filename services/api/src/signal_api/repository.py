@@ -331,3 +331,96 @@ class StatsRepository:
                 """
             )
             return cur.fetchall()
+
+    def get_play_velocity(self, days: int = 30) -> list[dict]:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                WITH date_series AS (
+                    SELECT generate_series(
+                        (NOW() - (INTERVAL '1 day' * %s))::date,
+                        NOW()::date,
+                        INTERVAL '1 day'
+                    )::date AS day
+                ),
+                daily AS (
+                    SELECT played_at::date AS day, COUNT(*) AS plays
+                    FROM listening_history
+                    WHERE played_at >= NOW() - (INTERVAL '1 day' * %s)
+                    GROUP BY played_at::date
+                )
+                SELECT ds.day, COALESCE(d.plays, 0) AS plays
+                FROM date_series ds
+                LEFT JOIN daily d ON d.day = ds.day
+                ORDER BY ds.day
+                """,
+                [days - 1, days],
+            )
+            return [{"day": row["day"], "plays": int(row["plays"])} for row in cur.fetchall()]
+
+    def get_score_breakdown_averages(self) -> dict:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    AVG((score_breakdown->>'genre_novelty')::float) * 100  AS avg_genre_novelty,
+                    AVG((score_breakdown->>'popularity_norm')::float) * 100 AS avg_popularity_norm,
+                    COUNT(*) AS total
+                FROM artist_recommendations r
+                JOIN artists a ON a.id = r.artist_id
+                WHERE a.status != 'BLACKLISTED'
+                  AND score_breakdown IS NOT NULL
+                  AND score_breakdown ? 'genre_novelty'
+                  AND score_breakdown ? 'popularity_norm'
+                """
+            )
+            row = cur.fetchone()
+            assert row is not None
+            return {
+                "avg_genre_novelty": float(row["avg_genre_novelty"]) if row["avg_genre_novelty"] is not None else None,
+                "avg_popularity_norm": float(row["avg_popularity_norm"]) if row["avg_popularity_norm"] is not None else None,
+                "total": int(row["total"]) if row["total"] else 0,
+            }
+
+    def get_exploration_coverage(self) -> dict:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(last_explored_at) AS explored
+                FROM artists
+                WHERE status NOT IN ('BLACKLISTED')
+                """
+            )
+            row = cur.fetchone()
+            assert row is not None
+        total = int(row["total"]) or 0
+        explored = int(row["explored"]) or 0
+        return {
+            "total": total,
+            "explored": explored,
+            "coverage_pct": round(explored / total * 100, 1) if total > 0 else 0.0,
+        }
+
+    def get_pipeline_funnel(self) -> list[dict]:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    status,
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE high_priority = true) AS high_priority
+                FROM artists
+                GROUP BY status
+                ORDER BY
+                    CASE status
+                        WHEN 'TRACKED'     THEN 1
+                        WHEN 'FOLLOWING'   THEN 2
+                        WHEN 'PUBLISHED'   THEN 3
+                        WHEN 'BLACKLISTED' THEN 4
+                        ELSE 5
+                    END
+                """
+            )
+            return cur.fetchall()

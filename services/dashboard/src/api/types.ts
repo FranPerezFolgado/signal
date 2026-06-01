@@ -110,3 +110,34 @@ export interface SourceCount {
 export interface ArtistSourcesResponse {
   sources: SourceCount[];
 }
+
+export interface PlayVelocityPoint {
+  day: string;
+  plays: number;
+}
+
+export interface PlayVelocityResponse {
+  points: PlayVelocityPoint[];
+}
+
+export interface ScoreBreakdownAverages {
+  avg_genre_novelty: number | null;
+  avg_popularity_norm: number | null;
+  total: number;
+}
+
+export interface ExplorationCoverageResponse {
+  total: number;
+  explored: number;
+  coverage_pct: number;
+}
+
+export interface StatusBucket {
+  status: string;
+  total: number;
+  high_priority: number;
+}
+
+export interface PipelineFunnelResponse {
+  statuses: StatusBucket[];
+}

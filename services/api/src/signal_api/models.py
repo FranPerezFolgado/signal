@@ -147,3 +147,34 @@ class SourceCount(BaseModel):
 
 class ArtistSourcesResponse(BaseModel):
     sources: list[SourceCount]
+
+
+class PlayVelocityPoint(BaseModel):
+    day: date
+    plays: int
+
+
+class PlayVelocityResponse(BaseModel):
+    points: list[PlayVelocityPoint]
+
+
+class ScoreBreakdownAverages(BaseModel):
+    avg_genre_novelty: float | None
+    avg_popularity_norm: float | None
+    total: int
+
+
+class ExplorationCoverageResponse(BaseModel):
+    total: int
+    explored: int
+    coverage_pct: float
+
+
+class StatusBucket(BaseModel):
+    status: str
+    total: int
+    high_priority: int
+
+
+class PipelineFunnelResponse(BaseModel):
+    statuses: list[StatusBucket]

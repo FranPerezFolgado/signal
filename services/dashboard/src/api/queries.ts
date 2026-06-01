@@ -4,10 +4,14 @@ import type {
   ArtistSourcesResponse,
   ArtistStatus,
   ArtistStatusCounts,
+  ExplorationCoverageResponse,
   GenreStatsResponse,
   NoveltyRatioResponse,
   PaginatedResponse,
+  PipelineFunnelResponse,
+  PlayVelocityResponse,
   RecommendationItem,
+  ScoreBreakdownAverages,
   ScoreDistributionResponse,
   ServiceHealthResponse,
   WeeklyDiscoveriesResponse,
@@ -66,4 +70,20 @@ export function fetchStatsNovelty() {
 
 export function fetchStatsSources() {
   return apiFetch<ArtistSourcesResponse>("/v1/stats/sources");
+}
+
+export function fetchStatsVelocity() {
+  return apiFetch<PlayVelocityResponse>("/v1/stats/velocity");
+}
+
+export function fetchStatsBreakdown() {
+  return apiFetch<ScoreBreakdownAverages>("/v1/stats/breakdown");
+}
+
+export function fetchStatsCoverage() {
+  return apiFetch<ExplorationCoverageResponse>("/v1/stats/coverage");
+}
+
+export function fetchStatsFunnel() {
+  return apiFetch<PipelineFunnelResponse>("/v1/stats/funnel");
 }
