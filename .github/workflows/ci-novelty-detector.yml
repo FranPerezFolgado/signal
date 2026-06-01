@@ -5,14 +5,10 @@ on:
     branches: [main]
     paths:
       - 'services/novelty-detector/**'
-      - 'shared/python-common/**'
-      - 'pyproject.toml'
   pull_request:
     branches: [main]
     paths:
       - 'services/novelty-detector/**'
-      - 'shared/python-common/**'
-      - 'pyproject.toml'
 
 permissions:
   contents: read
@@ -22,10 +18,14 @@ jobs:
     name: lint-and-test
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/novelty-detector
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb  # v5.4.2
-      - run: uv sync --frozen
-      - run: uv run ruff check services/novelty-detector/
-      - run: uv run mypy services/novelty-detector/src/
-      - run: uv run pytest services/novelty-detector/tests/unit/ -q
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5  # v5.5.0
+        with:
+          go-version-file: services/novelty-detector/go.mod
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...

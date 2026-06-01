@@ -22,7 +22,7 @@ class LastfmFallbackClient:
                     "artist": artist,
                     "api_key": self._api_key,
                     "format": "json",
-                    "autocorrect": 1,
+                    "autocorrect": "1",
                 },
                 timeout=10,
             )
@@ -53,7 +53,7 @@ class LastfmFallbackClient:
                     "artist": artist,
                     "track": title,
                     "format": "json",
-                    "autocorrect": 1,
+                    "autocorrect": "1",
                 },
                 timeout=10,
             )
