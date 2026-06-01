@@ -10,7 +10,8 @@ members = [
     "shared/python-common"
 ]
 exclude = [
-    "services/novelty-detector"
+    "services/novelty-detector",
+    "services/dashboard"
 ]
 
 [tool.uv]
