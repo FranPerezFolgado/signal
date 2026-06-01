@@ -1,5 +1,15 @@
 import { apiFetch } from "./client";
-import type { ArtistListItem, ArtistStatus, PaginatedResponse, RecommendationItem } from "./types";
+import type {
+  ArtistListItem,
+  ArtistStatus,
+  ArtistStatusCounts,
+  GenreStatsResponse,
+  PaginatedResponse,
+  RecommendationItem,
+  ScoreDistributionResponse,
+  ServiceHealthResponse,
+  WeeklyDiscoveriesResponse,
+} from "./types";
 
 export const PAGE_SIZE = 50;
 
@@ -26,4 +36,24 @@ export function patchArtistStatus(id: string, status: ArtistStatus) {
     `/v1/artists/${id}/status`,
     { method: "PATCH", body: JSON.stringify({ status }) },
   );
+}
+
+export function fetchStatsSummary() {
+  return apiFetch<ArtistStatusCounts>("/v1/stats/summary");
+}
+
+export function fetchStatsHealth() {
+  return apiFetch<ServiceHealthResponse>("/v1/stats/health");
+}
+
+export function fetchStatsGenres() {
+  return apiFetch<GenreStatsResponse>("/v1/stats/genres");
+}
+
+export function fetchStatsScores() {
+  return apiFetch<ScoreDistributionResponse>("/v1/stats/scores");
+}
+
+export function fetchStatsDiscoveries() {
+  return apiFetch<WeeklyDiscoveriesResponse>("/v1/stats/discoveries");
 }

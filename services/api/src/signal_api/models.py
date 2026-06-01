@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Generic, TypeVar
 from uuid import UUID
 
@@ -75,3 +75,57 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 class HealthResponse(BaseModel):
     status: str = Field(default="ok")
+
+
+# --- Stats models ---
+
+class ArtistStatusCounts(BaseModel):
+    tracked: int
+    following: int
+    published: int
+    blacklisted: int
+    total: int
+
+
+class ServiceCheckpoint(BaseModel):
+    service: str
+    last_seen_at: datetime
+    stale: bool
+
+
+class ServiceHealthResponse(BaseModel):
+    services: list[ServiceCheckpoint]
+    stale_threshold_minutes: int
+
+
+class GenreCount(BaseModel):
+    genre: str
+    artist_count: int
+
+
+class GenreStatsResponse(BaseModel):
+    genres: list[GenreCount]
+
+
+class ScoreBucket(BaseModel):
+    label: str
+    min_score: float
+    max_score: float
+    count: int
+
+
+class ScoreDistributionResponse(BaseModel):
+    total_scored: int
+    min_score: float | None
+    max_score: float | None
+    mean_score: float | None
+    buckets: list[ScoreBucket]
+
+
+class WeeklyCount(BaseModel):
+    week_start: date
+    new_artists: int
+
+
+class WeeklyDiscoveriesResponse(BaseModel):
+    weeks: list[WeeklyCount]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
 import psycopg
@@ -152,3 +153,124 @@ class ArtistRepository:
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         return where, params
+
+
+class StatsRepository:
+    def __init__(self, conn: psycopg.Connection) -> None:
+        self._conn = conn
+
+    def get_summary(self) -> dict:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT status, COUNT(*) AS cnt FROM artists GROUP BY status")
+            rows = cur.fetchall()
+
+        counts: dict[str, int] = {s: 0 for s in ("TRACKED", "FOLLOWING", "PUBLISHED", "BLACKLISTED")}
+        for row in rows:
+            key = row["status"].upper()
+            if key in counts:
+                counts[key] = row["cnt"]
+
+        return {
+            "tracked": counts["TRACKED"],
+            "following": counts["FOLLOWING"],
+            "published": counts["PUBLISHED"],
+            "blacklisted": counts["BLACKLISTED"],
+            "total": sum(counts.values()),
+        }
+
+    def get_health(self, threshold_minutes: int) -> list[dict]:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                "SELECT service, last_played_at, updated_at FROM ingester_checkpoints ORDER BY service"
+            )
+            rows = cur.fetchall()
+
+        now = datetime.now(tz=timezone.utc)
+        threshold = timedelta(minutes=threshold_minutes)
+        return [
+            {
+                "service": row["service"],
+                "last_seen_at": row["last_played_at"],
+                "stale": (now - row["last_played_at"].replace(tzinfo=timezone.utc)) > threshold
+                if row["last_played_at"].tzinfo is None
+                else (now - row["last_played_at"]) > threshold,
+            }
+            for row in rows
+        ]
+
+    def get_genres(self, top_n: int = 10) -> list[dict]:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT genre, COUNT(*) AS artist_count
+                FROM artists, UNNEST(genres) AS genre
+                WHERE genre IS NOT NULL AND TRIM(genre) != ''
+                GROUP BY genre
+                ORDER BY artist_count DESC
+                LIMIT %s
+                """,
+                [top_n],
+            )
+            return cur.fetchall()
+
+    def get_score_distribution(self) -> dict:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    COUNT(*)                                                       AS total_scored,
+                    MIN(r.score)                                                   AS min_score,
+                    MAX(r.score)                                                   AS max_score,
+                    AVG(r.score)                                                   AS mean_score,
+                    COUNT(*) FILTER (WHERE r.score >= 0    AND r.score < 0.25)    AS bucket_0,
+                    COUNT(*) FILTER (WHERE r.score >= 0.25 AND r.score < 0.5)     AS bucket_1,
+                    COUNT(*) FILTER (WHERE r.score >= 0.5  AND r.score < 0.75)    AS bucket_2,
+                    COUNT(*) FILTER (WHERE r.score >= 0.75 AND r.score <= 1.0)    AS bucket_3
+                FROM artist_recommendations r
+                JOIN artists a ON a.id = r.artist_id
+                WHERE a.status != 'BLACKLISTED'
+                """
+            )
+            row = cur.fetchone()
+            assert row is not None
+
+        total = row["total_scored"] or 0
+        return {
+            "total_scored": total,
+            "min_score": float(row["min_score"]) if row["min_score"] is not None else None,
+            "max_score": float(row["max_score"]) if row["max_score"] is not None else None,
+            "mean_score": float(row["mean_score"]) if row["mean_score"] is not None else None,
+            "buckets": [
+                {"label": "0.00–0.25", "min_score": 0.0,  "max_score": 0.25, "count": row["bucket_0"] or 0},
+                {"label": "0.25–0.50", "min_score": 0.25, "max_score": 0.50, "count": row["bucket_1"] or 0},
+                {"label": "0.50–0.75", "min_score": 0.50, "max_score": 0.75, "count": row["bucket_2"] or 0},
+                {"label": "0.75–1.00", "min_score": 0.75, "max_score": 1.00, "count": row["bucket_3"] or 0},
+            ],
+        }
+
+    def get_weekly_discoveries(self, num_weeks: int = 8) -> list[dict]:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    date_trunc('week', added_at AT TIME ZONE 'UTC')::date AS week_start,
+                    COUNT(*) AS new_artists
+                FROM artists
+                WHERE added_at >= NOW() - (INTERVAL '1 week' * %s)
+                GROUP BY week_start
+                ORDER BY week_start ASC
+                """,
+                [num_weeks],
+            )
+            db_rows = {row["week_start"]: row["new_artists"] for row in cur.fetchall()}
+
+        # Generate the last num_weeks Monday dates and zero-fill gaps
+        today = date.today()
+        # Find the most recent Monday
+        days_since_monday = today.weekday()
+        current_monday = today - timedelta(days=days_since_monday)
+        weeks = []
+        for i in range(num_weeks - 1, -1, -1):
+            week_start = current_monday - timedelta(weeks=i)
+            weeks.append({"week_start": week_start, "new_artists": db_rows.get(week_start, 0)})
+        return weeks
