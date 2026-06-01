@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { FaceplatePanel } from "@/components/signal/FaceplatePanel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   fetchStatsBreakdown,
   fetchStatsCoverage,
@@ -127,7 +128,12 @@ function NoveltyRatioSection() {
   }));
 
   return (
-    <FaceplatePanel slug="04.A" label="NOVELTY RATIO" meta={<MetaBadge>30D</MetaBadge>}>
+    <FaceplatePanel
+      slug="04.A"
+      label="NOVELTY RATIO"
+      meta={<MetaBadge>30D</MetaBadge>}
+      info="Fraction of daily plays to artists added within the last 30 days of that play date. Higher means more of your listening is directed at recently discovered artists."
+    >
       {isLoading && <SectionSkeleton />}
       {isError && <SectionError label="NOVELTY DATA UNAVAILABLE" refetch={refetch} />}
       {chartData && (
@@ -184,7 +190,12 @@ function WeeklyDiscoveriesSection() {
   }));
 
   return (
-    <FaceplatePanel slug="04.B" label="NEW ARTISTS PER WEEK" meta={<MetaBadge>12W</MetaBadge>}>
+    <FaceplatePanel
+      slug="04.B"
+      label="NEW ARTISTS PER WEEK"
+      meta={<MetaBadge>12W</MetaBadge>}
+      info="Count of new artists added to the pipeline each Mon–Sun UTC calendar week over the past 12 weeks. Weeks with no additions are zero-filled."
+    >
       {isLoading && <SectionSkeleton />}
       {isError && <SectionError label="DISCOVERIES UNAVAILABLE" refetch={refetch} />}
       {chartData && (
@@ -237,7 +248,11 @@ function ArtistSourcesSection() {
   const total = data?.sources.reduce((s, x) => s + x.count, 0) ?? 0;
 
   return (
-    <FaceplatePanel slug="04.C" label="MOST ACTIVE SOURCES">
+    <FaceplatePanel
+      slug="04.C"
+      label="MOST ACTIVE SOURCES"
+      info="How artists were introduced to the pipeline. LASTFM_SIMILAR = found via Last.fm similar-artist expansion from a FOLLOWING artist. Manual = added via onboarding script."
+    >
       {isLoading && <SectionSkeleton height={260} />}
       {isError && <SectionError label="SOURCE DATA UNAVAILABLE" refetch={refetch} />}
       {data && data.sources.length === 0 && (
@@ -310,6 +325,7 @@ function ScoreDistributionSection() {
       slug="04.D"
       label="SCORE DISTRIBUTION"
       meta={data && data.total_scored > 0 ? <MetaBadge>N={data.total_scored}</MetaBadge> : undefined}
+      info="Recommendation scores (0–100) distributed across five buckets. Score = weighted combination of genre novelty and popularity normalisation. Higher is a stronger recommendation."
     >
       {isLoading && <SectionSkeleton />}
       {isError && <SectionError label="SCORE DATA UNAVAILABLE" refetch={refetch} />}
@@ -378,7 +394,11 @@ function PipelineFunnelSection() {
   const maxTotal = sorted.length > 0 ? Math.max(...sorted.map((s) => s.total), 1) : 1;
 
   return (
-    <FaceplatePanel slug="04.E" label="PIPELINE FUNNEL">
+    <FaceplatePanel
+      slug="04.E"
+      label="PIPELINE FUNNEL"
+      info="Artist counts by pipeline state. TRACKED = under observation. FOLLOWING = being explored for similar artists. PUBLISHED = surfaced as a recommendation. BLACKLISTED = excluded. ★ = high-priority artists above the auto-follow play threshold."
+    >
       {isLoading && <SectionSkeleton height={160} />}
       {isError && <SectionError label="FUNNEL DATA UNAVAILABLE" refetch={refetch} />}
       {data && sorted.length > 0 && (
@@ -439,6 +459,7 @@ function ScoreBreakdownSection() {
       slug="04.F"
       label="SCORE FACTORS"
       meta={data && data.total > 0 ? <MetaBadge>N={data.total}</MetaBadge> : undefined}
+      info="Average contribution of each scoring component across all scored artists. Genre novelty rewards artists in genres you rarely listen to. Popularity rewards moderately popular artists (not mainstream, not obscure)."
     >
       {isLoading && <SectionSkeleton height={120} />}
       {isError && <SectionError label="BREAKDOWN UNAVAILABLE" refetch={refetch} />}
@@ -496,6 +517,7 @@ function PlayVelocitySection() {
       slug="04.G"
       label="PLAY VELOCITY"
       meta={<MetaBadge>30D</MetaBadge>}
+      info="Daily play count from Last.fm listening history over the past 30 days. Shows your listening activity rhythm — peaks indicate heavy listening sessions or scrobble catch-up days."
     >
       {isLoading && <SectionSkeleton />}
       {isError && <SectionError label="VELOCITY DATA UNAVAILABLE" refetch={refetch} />}
@@ -545,7 +567,11 @@ function ExplorationCoverageSection() {
   });
 
   return (
-    <FaceplatePanel slug="04.H" label="EXPLORATION COVERAGE">
+    <FaceplatePanel
+      slug="04.H"
+      label="EXPLORATION COVERAGE"
+      info="Percentage of FOLLOWING artists that have completed similar-artist expansion via Last.fm. Low coverage means artist-tracker has artists queued but not yet processed. Does not include Spotify top-tracks exploration."
+    >
       {isLoading && <SectionSkeleton height={120} />}
       {isError && <SectionError label="COVERAGE DATA UNAVAILABLE" refetch={refetch} />}
       {data && (
@@ -582,18 +608,20 @@ function ExplorationCoverageSection() {
 
 function StatsPage() {
   return (
-    <div className="p-4 space-y-4">
-      <ServiceHealthStrip />
-      <div className="grid grid-cols-2 gap-4">
-        <NoveltyRatioSection />
-        <WeeklyDiscoveriesSection />
-        <ArtistSourcesSection />
-        <ScoreDistributionSection />
-        <PipelineFunnelSection />
-        <ScoreBreakdownSection />
-        <PlayVelocitySection />
-        <ExplorationCoverageSection />
+    <TooltipProvider delayDuration={300}>
+      <div className="p-4 space-y-4">
+        <ServiceHealthStrip />
+        <div className="grid grid-cols-2 gap-4">
+          <NoveltyRatioSection />
+          <WeeklyDiscoveriesSection />
+          <ArtistSourcesSection />
+          <ScoreDistributionSection />
+          <PipelineFunnelSection />
+          <ScoreBreakdownSection />
+          <PlayVelocitySection />
+          <ExplorationCoverageSection />
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
