@@ -41,7 +41,8 @@ def _to_artist_list_item(row: dict) -> ArtistListItem:
 def _to_artist_detail(row: dict) -> ArtistDetail:
     recommendation = None
     if row.get("score") is not None:
-        evidence = parse_jsonb(row.get("evidence_tracks")) or []
+        evidence_raw = parse_jsonb(row.get("evidence_tracks"))
+        evidence: list[str] = evidence_raw if isinstance(evidence_raw, list) else []
         recommendation = ArtistRecommendation(
             score=row["score"],
             breakdown=build_score_breakdown(row.get("score_breakdown")),

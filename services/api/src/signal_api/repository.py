@@ -42,7 +42,9 @@ class ArtistRepository:
                 f"SELECT COUNT(*) AS total FROM artists a {where}",
                 params,
             )
-            total = cur.fetchone()["total"]
+            count_row = cur.fetchone()
+            assert count_row is not None
+            total = count_row["total"]
 
         return rows, total
 
@@ -114,7 +116,9 @@ class ArtistRepository:
                 """,
                 [],
             )
-            total = cur.fetchone()["total"]
+            count_row = cur.fetchone()
+            assert count_row is not None
+            total = count_row["total"]
 
         return rows, total
 
