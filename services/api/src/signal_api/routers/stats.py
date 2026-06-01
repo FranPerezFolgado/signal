@@ -4,12 +4,16 @@ from fastapi import APIRouter, Depends
 
 from signal_api.deps import get_db
 from signal_api.models import (
+    ArtistSourcesResponse,
     ArtistStatusCounts,
     GenreCount,
     GenreStatsResponse,
+    NoveltyPoint,
+    NoveltyRatioResponse,
     ScoreDistributionResponse,
     ServiceCheckpoint,
     ServiceHealthResponse,
+    SourceCount,
     WeeklyCount,
     WeeklyDiscoveriesResponse,
 )
@@ -63,3 +67,19 @@ def get_stats_discoveries(
 ) -> WeeklyDiscoveriesResponse:
     rows = StatsRepository(conn).get_weekly_discoveries()
     return WeeklyDiscoveriesResponse(weeks=[WeeklyCount(**r) for r in rows])
+
+
+@router.get("/stats/novelty", response_model=NoveltyRatioResponse)
+def get_stats_novelty(
+    conn: psycopg.Connection = Depends(get_db),
+) -> NoveltyRatioResponse:
+    rows = StatsRepository(conn).get_novelty_ratio()
+    return NoveltyRatioResponse(points=[NoveltyPoint(**r) for r in rows])
+
+
+@router.get("/stats/sources", response_model=ArtistSourcesResponse)
+def get_stats_sources(
+    conn: psycopg.Connection = Depends(get_db),
+) -> ArtistSourcesResponse:
+    rows = StatsRepository(conn).get_artist_sources()
+    return ArtistSourcesResponse(sources=[SourceCount(**r) for r in rows])

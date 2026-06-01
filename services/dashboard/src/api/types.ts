@@ -92,3 +92,21 @@ export interface WeeklyCount {
 export interface WeeklyDiscoveriesResponse {
   weeks: WeeklyCount[];
 }
+
+export interface NoveltyPoint {
+  day: string;
+  ratio: number;
+}
+
+export interface NoveltyRatioResponse {
+  points: NoveltyPoint[];
+}
+
+export interface SourceCount {
+  source: string;
+  count: number;
+}
+
+export interface ArtistSourcesResponse {
+  sources: SourceCount[];
+}

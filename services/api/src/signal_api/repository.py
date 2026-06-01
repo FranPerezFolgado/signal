@@ -218,14 +218,15 @@ class StatsRepository:
             cur.execute(
                 """
                 SELECT
-                    COUNT(*)                                                       AS total_scored,
-                    MIN(r.score)                                                   AS min_score,
-                    MAX(r.score)                                                   AS max_score,
-                    AVG(r.score)                                                   AS mean_score,
-                    COUNT(*) FILTER (WHERE r.score >= 0    AND r.score < 0.25)    AS bucket_0,
-                    COUNT(*) FILTER (WHERE r.score >= 0.25 AND r.score < 0.5)     AS bucket_1,
-                    COUNT(*) FILTER (WHERE r.score >= 0.5  AND r.score < 0.75)    AS bucket_2,
-                    COUNT(*) FILTER (WHERE r.score >= 0.75 AND r.score <= 1.0)    AS bucket_3
+                    COUNT(*)                                                         AS total_scored,
+                    MIN(r.score * 100)                                               AS min_score,
+                    MAX(r.score * 100)                                               AS max_score,
+                    AVG(r.score * 100)                                               AS mean_score,
+                    COUNT(*) FILTER (WHERE r.score * 100 >= 0   AND r.score * 100 < 20)   AS bucket_0,
+                    COUNT(*) FILTER (WHERE r.score * 100 >= 20  AND r.score * 100 < 40)   AS bucket_1,
+                    COUNT(*) FILTER (WHERE r.score * 100 >= 40  AND r.score * 100 < 60)   AS bucket_2,
+                    COUNT(*) FILTER (WHERE r.score * 100 >= 60  AND r.score * 100 < 80)   AS bucket_3,
+                    COUNT(*) FILTER (WHERE r.score * 100 >= 80  AND r.score * 100 <= 100) AS bucket_4
                 FROM artist_recommendations r
                 JOIN artists a ON a.id = r.artist_id
                 WHERE a.status != 'BLACKLISTED'
@@ -241,14 +242,15 @@ class StatsRepository:
             "max_score": float(row["max_score"]) if row["max_score"] is not None else None,
             "mean_score": float(row["mean_score"]) if row["mean_score"] is not None else None,
             "buckets": [
-                {"label": "0.00–0.25", "min_score": 0.0,  "max_score": 0.25, "count": row["bucket_0"] or 0},
-                {"label": "0.25–0.50", "min_score": 0.25, "max_score": 0.50, "count": row["bucket_1"] or 0},
-                {"label": "0.50–0.75", "min_score": 0.50, "max_score": 0.75, "count": row["bucket_2"] or 0},
-                {"label": "0.75–1.00", "min_score": 0.75, "max_score": 1.00, "count": row["bucket_3"] or 0},
+                {"label": "0–20",   "min_score": 0.0,  "max_score": 20.0,  "count": row["bucket_0"] or 0},
+                {"label": "20–40",  "min_score": 20.0, "max_score": 40.0,  "count": row["bucket_1"] or 0},
+                {"label": "40–60",  "min_score": 40.0, "max_score": 60.0,  "count": row["bucket_2"] or 0},
+                {"label": "60–80",  "min_score": 60.0, "max_score": 80.0,  "count": row["bucket_3"] or 0},
+                {"label": "80–100", "min_score": 80.0, "max_score": 100.0, "count": row["bucket_4"] or 0},
             ],
         }
 
-    def get_weekly_discoveries(self, num_weeks: int = 8) -> list[dict]:
+    def get_weekly_discoveries(self, num_weeks: int = 12) -> list[dict]:
         with self._conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 """
@@ -274,3 +276,58 @@ class StatsRepository:
             week_start = current_monday - timedelta(weeks=i)
             weeks.append({"week_start": week_start, "new_artists": db_rows.get(week_start, 0)})
         return weeks
+
+    def get_novelty_ratio(self, days: int = 30) -> list[dict]:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                WITH date_series AS (
+                    SELECT generate_series(
+                        (NOW() - (INTERVAL '1 day' * %s))::date,
+                        NOW()::date,
+                        INTERVAL '1 day'
+                    )::date AS day
+                ),
+                daily AS (
+                    SELECT
+                        lh.played_at::date                                                  AS day,
+                        COUNT(*)                                                             AS total_plays,
+                        COUNT(*) FILTER (
+                            WHERE a.added_at >= lh.played_at - INTERVAL '30 days'
+                        )                                                                    AS novel_plays
+                    FROM listening_history lh
+                    LEFT JOIN artists a ON a.name = lh.artist
+                    WHERE lh.played_at >= NOW() - (INTERVAL '1 day' * %s)
+                    GROUP BY lh.played_at::date
+                )
+                SELECT
+                    ds.day,
+                    COALESCE(
+                        CASE WHEN d.total_plays > 0
+                             THEN d.novel_plays::float / d.total_plays
+                             ELSE 0.0 END,
+                        0.0
+                    ) AS ratio
+                FROM date_series ds
+                LEFT JOIN daily d ON d.day = ds.day
+                ORDER BY ds.day
+                """,
+                [days - 1, days],
+            )
+            return [{"day": row["day"], "ratio": float(row["ratio"])} for row in cur.fetchall()]
+
+    def get_artist_sources(self) -> list[dict]:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    COALESCE(source, 'unknown') AS source,
+                    COUNT(*) AS count
+                FROM artists
+                WHERE source IS NOT NULL AND source != ''
+                GROUP BY source
+                ORDER BY count DESC
+                LIMIT 10
+                """
+            )
+            return cur.fetchall()

@@ -1,9 +1,11 @@
 import { apiFetch } from "./client";
 import type {
   ArtistListItem,
+  ArtistSourcesResponse,
   ArtistStatus,
   ArtistStatusCounts,
   GenreStatsResponse,
+  NoveltyRatioResponse,
   PaginatedResponse,
   RecommendationItem,
   ScoreDistributionResponse,
@@ -56,4 +58,12 @@ export function fetchStatsScores() {
 
 export function fetchStatsDiscoveries() {
   return apiFetch<WeeklyDiscoveriesResponse>("/v1/stats/discoveries");
+}
+
+export function fetchStatsNovelty() {
+  return apiFetch<NoveltyRatioResponse>("/v1/stats/novelty");
+}
+
+export function fetchStatsSources() {
+  return apiFetch<ArtistSourcesResponse>("/v1/stats/sources");
 }

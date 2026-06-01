@@ -129,3 +129,21 @@ class WeeklyCount(BaseModel):
 
 class WeeklyDiscoveriesResponse(BaseModel):
     weeks: list[WeeklyCount]
+
+
+class NoveltyPoint(BaseModel):
+    day: date
+    ratio: float
+
+
+class NoveltyRatioResponse(BaseModel):
+    points: list[NoveltyPoint]
+
+
+class SourceCount(BaseModel):
+    source: str
+    count: int
+
+
+class ArtistSourcesResponse(BaseModel):
+    sources: list[SourceCount]
