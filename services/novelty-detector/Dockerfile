@@ -1,28 +1,22 @@
-# Stage 1 — builder: install deps with uv
-FROM python:3.12-slim AS builder
+# Stage 1 — builder: compile Go binary with CGo for confluent-kafka-go
+FROM golang:1.22-alpine AS builder
 
-WORKDIR /workspace
+RUN apk add --no-cache gcc musl-dev librdkafka-dev pkgconfig
 
-RUN pip install --no-cache-dir uv
+WORKDIR /build
 
-# Copy workspace definition first (maximises layer cache reuse)
-COPY pyproject.toml uv.lock ./
+COPY services/novelty-detector/go.mod services/novelty-detector/go.sum ./
+RUN go mod download
 
-# Copy source packages needed by this service
-COPY shared/python-common/ shared/python-common/
-COPY services/novelty-detector/ services/novelty-detector/
+COPY services/novelty-detector/cmd/ ./cmd/
+COPY services/novelty-detector/internal/ ./internal/
+RUN go build -tags musl -o novelty-detector ./cmd/novelty-detector/
 
-# Install only runtime deps; honour lockfile for reproducibility
-RUN uv sync --package signal-novelty-detector --no-dev --frozen
+# Stage 2 — runtime: minimal Alpine image with librdkafka
+FROM alpine:3.20
 
-# Stage 2 — runtime: minimal image with installed env + source
-FROM python:3.12-slim
+RUN apk add --no-cache librdkafka
 
-WORKDIR /workspace
+COPY --from=builder /build/novelty-detector /usr/local/bin/novelty-detector
 
-# signal-common is an editable workspace dep — source must be present
-COPY --from=builder /workspace /workspace
-
-ENV PATH="/workspace/.venv/bin:$PATH"
-
-CMD ["signal-novelty-detector"]
+CMD ["novelty-detector"]

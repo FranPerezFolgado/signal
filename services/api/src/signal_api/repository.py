@@ -23,10 +23,15 @@ class ArtistRepository:
         with self._conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 f"""
-                SELECT id, name, status, high_priority, scrobble_count, genres
-                FROM artists
+                SELECT
+                    a.id, a.name, a.status, a.high_priority,
+                    a.scrobble_count, a.genres, a.source, a.origin_artist_id,
+                    o.name AS origin_artist_name,
+                    a.external_ids->>'spotify' AS spotify_uri
+                FROM artists a
+                LEFT JOIN artists o ON o.id = a.origin_artist_id
                 {where}
-                ORDER BY scrobble_count DESC
+                ORDER BY a.scrobble_count DESC
                 LIMIT %s OFFSET %s
                 """,
                 [*params, page_size, offset],
@@ -34,10 +39,12 @@ class ArtistRepository:
             rows = cur.fetchall()
 
             cur.execute(
-                f"SELECT COUNT(*) AS total FROM artists {where}",
+                f"SELECT COUNT(*) AS total FROM artists a {where}",
                 params,
             )
-            total = cur.fetchone()["total"]
+            count_row = cur.fetchone()
+            assert count_row is not None
+            total = count_row["total"]
 
         return rows, total
 
@@ -77,7 +84,19 @@ class ArtistRepository:
                 f"""
                 SELECT
                     a.id, a.name, a.status, a.high_priority, a.genres,
-                    r.score, r.score_breakdown, r.evidence_tracks, r.updated_at
+                    a.external_ids->>'spotify' AS spotify_uri,
+                    r.score, r.score_breakdown, r.updated_at,
+                    (
+                        SELECT COALESCE(jsonb_agg(
+                            CASE
+                                WHEN lh.title IS NOT NULL
+                                THEN lh.artist || ' — ' || lh.title
+                                ELSE e
+                            END
+                        ), '[]'::jsonb)
+                        FROM jsonb_array_elements_text(r.evidence_tracks) e
+                        LEFT JOIN listening_history lh ON lh.signal_id = e
+                    ) AS evidence_tracks
                 FROM artist_recommendations r
                 JOIN artists a ON a.id = r.artist_id
                 WHERE {status_filter}
@@ -97,7 +116,9 @@ class ArtistRepository:
                 """,
                 [],
             )
-            total = cur.fetchone()["total"]
+            count_row = cur.fetchone()
+            assert count_row is not None
+            total = count_row["total"]
 
         return rows, total
 
@@ -123,10 +144,10 @@ class ArtistRepository:
         params: list = []
 
         if status is not None:
-            conditions.append("status = %s")
+            conditions.append("a.status = %s")
             params.append(status)
         if high_priority is not None:
-            conditions.append("high_priority = %s")
+            conditions.append("a.high_priority = %s")
             params.append(high_priority)
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""

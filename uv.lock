@@ -16,7 +16,6 @@ members = [
     "signal-history-tracker",
     "signal-lastfm-ingester",
     "signal-normalizer",
-    "signal-novelty-detector",
     "signal-scorer",
 ]
 
@@ -973,21 +972,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "requests", specifier = ">=2.31" },
-    { name = "signal-common", editable = "shared/python-common" },
-]
-
-[[package]]
-name = "signal-novelty-detector"
-version = "0.1.0"
-source = { editable = "services/novelty-detector" }
-dependencies = [
-    { name = "psycopg", extra = ["binary"] },
-    { name = "signal-common" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.1" },
     { name = "signal-common", editable = "shared/python-common" },
 ]
 

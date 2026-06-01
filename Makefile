@@ -2,7 +2,7 @@
 
 COMPOSE = docker compose -f infra/docker-compose.yml
 
-.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs onboarding test-e2e
+.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs onboarding test-e2e dashboard dashboard-up dashboard-down dashboard-logs
 
 ## Arranca Kafka + Zookeeper + PostgreSQL (y crea los topics)
 up:
@@ -213,6 +213,26 @@ services-down:
 ## Reconstruye y reinicia todos los servicios del pipeline
 services-restart:
 	@$(COMPOSE) --profile services up -d --build --force-recreate
+
+# ─── dashboard ────────────────────────────────────────────────────────────────
+
+.PHONY: dashboard dashboard-up dashboard-down dashboard-logs
+
+## Arranca el dashboard en modo dev local (http://localhost:5173)
+dashboard:
+	@cd services/dashboard && bun run dev
+
+## Arranca el dashboard como contenedor Docker en background
+dashboard-up:
+	@$(COMPOSE) --profile tools up -d --build dashboard
+
+## Para y elimina el contenedor del dashboard
+dashboard-down:
+	@$(COMPOSE) stop dashboard && $(COMPOSE) rm -f dashboard
+
+## Muestra los logs del contenedor del dashboard (Ctrl+C para salir)
+dashboard-logs:
+	@docker logs -f signal-dashboard
 
 # ─── kafka-ui ─────────────────────────────────────────────────────────────────
 

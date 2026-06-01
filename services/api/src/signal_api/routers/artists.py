@@ -23,6 +23,7 @@ router = APIRouter()
 
 
 def _to_artist_list_item(row: dict) -> ArtistListItem:
+    spotify_uri: str | None = row.get("spotify_uri")
     return ArtistListItem(
         id=row["id"],
         name=row["name"],
@@ -30,13 +31,18 @@ def _to_artist_list_item(row: dict) -> ArtistListItem:
         high_priority=row["high_priority"],
         scrobble_count=row["scrobble_count"],
         genres=row["genres"] or [],
+        spotify_id=spotify_uri.split(":")[-1] if spotify_uri else None,
+        source=row.get("source"),
+        origin_artist_id=row.get("origin_artist_id"),
+        origin_artist_name=row.get("origin_artist_name"),
     )
 
 
 def _to_artist_detail(row: dict) -> ArtistDetail:
     recommendation = None
     if row.get("score") is not None:
-        evidence = parse_jsonb(row.get("evidence_tracks")) or []
+        evidence_raw = parse_jsonb(row.get("evidence_tracks"))
+        evidence: list[str] = evidence_raw if isinstance(evidence_raw, list) else []
         recommendation = ArtistRecommendation(
             score=row["score"],
             breakdown=build_score_breakdown(row.get("score_breakdown")),

@@ -58,7 +58,8 @@ class TestEnrich:
         enricher = Enricher(_make_settings(lastfm_enabled=True))
         enricher._spotify.get_artist_data = MagicMock(return_value=None)
         enricher._spotify.get_track_data = MagicMock(return_value=None)
-        enricher._lastfm.get_tags = MagicMock(return_value=["ambient", "electronic"])
+        enricher._lastfm.get_artist_tags = MagicMock(return_value=["ambient", "electronic"])
+        enricher._lastfm.get_tags = MagicMock(return_value=[])
 
         result = enricher.enrich(_normalized())
 
@@ -70,6 +71,7 @@ class TestEnrich:
         enricher = Enricher(_make_settings(lastfm_enabled=True))
         enricher._spotify.get_artist_data = MagicMock(side_effect=SpotifyServiceError("5xx"))
         enricher._spotify.get_track_data = MagicMock(return_value=None)
+        enricher._lastfm.get_artist_tags = MagicMock(return_value=[])
         enricher._lastfm.get_tags = MagicMock(return_value=[])
 
         result = enricher.enrich(_normalized())
@@ -99,7 +101,8 @@ class TestEnrich:
         enricher = Enricher(_make_settings(lastfm_enabled=True))
         enricher._circuit_breaker._state = State.OPEN
         enricher._circuit_breaker._opened_at = time.monotonic()
-        enricher._lastfm.get_tags = MagicMock(return_value=["ambient"])
+        enricher._lastfm.get_artist_tags = MagicMock(return_value=["ambient"])
+        enricher._lastfm.get_tags = MagicMock(return_value=[])
         enricher._spotify.get_artist_data = MagicMock()
 
         result = enricher.enrich(_normalized())
@@ -118,6 +121,22 @@ class TestEnrich:
 
         assert enricher._spotify.get_artist_data.call_count == 3
 
+    def test_spotify_empty_genres_supplemented_by_lastfm(self):
+        enricher = Enricher(_make_settings(lastfm_enabled=True))
+        enricher._spotify.get_artist_data = MagicMock(
+            return_value={"genres": [], "artist_popularity": 50, "followers": 1000}
+        )
+        enricher._spotify.get_track_data = MagicMock(
+            return_value={"track_popularity": 40, "duration_ms": 200000}
+        )
+        enricher._lastfm.get_artist_tags = MagicMock(return_value=["electronic", "ambient"])
+
+        result = enricher.enrich(_normalized())
+
+        assert result["enrichment_source"] == "spotify"
+        assert result["pending_enrichment"] is False
+        assert result["genres"] == ["electronic", "ambient"]
+
     def test_output_preserves_normalized_fields(self):
         enricher = Enricher(_make_settings())
         enricher._spotify.get_artist_data = MagicMock(
@@ -126,6 +145,7 @@ class TestEnrich:
         enricher._spotify.get_track_data = MagicMock(
             return_value={"track_popularity": None, "duration_ms": None}
         )
+        enricher._lastfm.get_artist_tags = MagicMock(return_value=[])
 
         normalized = _normalized()
         result = enricher.enrich(normalized)

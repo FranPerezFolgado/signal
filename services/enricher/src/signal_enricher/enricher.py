@@ -39,7 +39,10 @@ class Enricher:
 
     def _lastfm_fallback(self, artist: str, title: str) -> tuple[str, list[str] | None, bool]:
         if self._lastfm:
-            tags = self._lastfm.get_tags(artist, title)
+            # Artist-level tags are more reliable for genre detection than track tags
+            tags = self._lastfm.get_artist_tags(artist)
+            if not tags:
+                tags = self._lastfm.get_tags(artist, title)
             if tags:
                 _log.info("lastfm_fallback_used", artist=artist)
                 return "lastfm", tags, False
@@ -102,6 +105,12 @@ class Enricher:
             else:
                 _log.warning("circuit_open_skipping_spotify", artist=artist)
                 enrichment_source, genres, pending = self._lastfm_fallback(artist, title)
+
+        # Spotify removed genres from their API (Nov 2024) — supplement with Last.fm when empty.
+        if not genres and self._lastfm:
+            lastfm_genres = self._lastfm.get_artist_tags(artist)
+            if lastfm_genres:
+                genres = lastfm_genres
 
         return {
             **normalized,

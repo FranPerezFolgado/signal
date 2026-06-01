@@ -16,7 +16,7 @@ def parse_jsonb(value) -> dict | list | None:
 
 def build_score_breakdown(raw) -> ScoreBreakdown | None:
     parsed = parse_jsonb(raw)
-    if not parsed:
+    if not parsed or not isinstance(parsed, dict):
         return None
     return ScoreBreakdown(
         genre_novelty=parsed.get("genre_novelty", 0.0),
