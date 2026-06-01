@@ -248,11 +248,11 @@ function ArtistSourcesSection() {
 // --- Score Distribution ---
 
 const SCORE_COLORS = [
-  "hsl(0 0% 22%)",
-  "hsl(0 0% 35%)",
-  "hsl(0 0% 55%)",
-  "var(--signal-orange)",
-  "var(--signal-orange)",
+  "hsl(0 60% 38%)",        // 0–20  dark red
+  "hsl(0 0% 42%)",         // 20–40 gray
+  "hsl(38 75% 52%)",       // 40–60 amber
+  "hsl(142 45% 44%)",      // 60–80 green
+  "var(--signal-orange)",  // 80–100 orange
 ];
 
 function ScoreDistributionSection() {
@@ -313,7 +313,7 @@ function ScoreDistributionSection() {
 
 function StatsPage() {
   return (
-    <div className="space-y-0 p-4 flex flex-col gap-4">
+    <div className="p-4 grid grid-cols-2 gap-4">
       <NoveltyRatioSection />
       <WeeklyDiscoveriesSection />
       <ArtistSourcesSection />
