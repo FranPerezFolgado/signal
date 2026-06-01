@@ -26,7 +26,8 @@ class ArtistRepository:
                 SELECT
                     a.id, a.name, a.status, a.high_priority,
                     a.scrobble_count, a.genres, a.source, a.origin_artist_id,
-                    o.name AS origin_artist_name
+                    o.name AS origin_artist_name,
+                    a.external_ids->>'spotify' AS spotify_uri
                 FROM artists a
                 LEFT JOIN artists o ON o.id = a.origin_artist_id
                 {where}

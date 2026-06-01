@@ -12,6 +12,7 @@ export interface ArtistListItem {
   high_priority: boolean;
   scrobble_count: number;
   genres: string[];
+  spotify_id: string | null;
   source: string | null;
   origin_artist_id: string | null;
   origin_artist_name: string | null;
