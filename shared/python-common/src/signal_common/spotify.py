@@ -19,6 +19,11 @@ class SpotifyServiceError(Exception):
     pass
 
 
+class SpotifyResourceError(SpotifyServiceError):
+    """Raised for permanent per-resource errors (403, 404). Should be skipped, not retried."""
+    pass
+
+
 class BaseSpotifyClient:
     """Shared HTTP machinery for Spotify API clients.
 
@@ -133,4 +138,6 @@ class BaseSpotifyClient:
                 return resp.json()
 
         _log.warning("spotify_non_200", status=resp.status_code, url=url.split("?")[0])
+        if resp.status_code in (403, 404):
+            raise SpotifyResourceError(f"non-200 status {resp.status_code}")
         raise SpotifyServiceError(f"non-200 status {resp.status_code}")

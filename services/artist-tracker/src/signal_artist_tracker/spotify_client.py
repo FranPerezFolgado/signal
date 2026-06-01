@@ -13,10 +13,7 @@ class SpotifyClient(BaseSpotifyClient):
         artist_id = artist_uri.removeprefix(_URI_PREFIX)
         if not _BASE62_RE.match(artist_id):
             raise SpotifyServiceError("invalid Spotify artist ID format")
-        data = self._get(
-            f"{_API_BASE}/artists/{artist_id}/top-tracks",
-            params={"market": "from_token"},
-        )
+        data = self._get(f"{_API_BASE}/artists/{artist_id}/top-tracks")
         tracks = data.get("tracks", [])
         result = []
         for t in tracks:

@@ -1,5 +1,21 @@
 import { apiFetch } from "./client";
-import type { ArtistListItem, ArtistStatus, PaginatedResponse, RecommendationItem } from "./types";
+import type {
+  ArtistListItem,
+  ArtistSourcesResponse,
+  ArtistStatus,
+  ArtistStatusCounts,
+  ExplorationCoverageResponse,
+  GenreStatsResponse,
+  NoveltyRatioResponse,
+  PaginatedResponse,
+  PipelineFunnelResponse,
+  PlayVelocityResponse,
+  RecommendationItem,
+  ScoreBreakdownAverages,
+  ScoreDistributionResponse,
+  ServiceHealthResponse,
+  WeeklyDiscoveriesResponse,
+} from "./types";
 
 export const PAGE_SIZE = 50;
 
@@ -26,4 +42,48 @@ export function patchArtistStatus(id: string, status: ArtistStatus) {
     `/v1/artists/${id}/status`,
     { method: "PATCH", body: JSON.stringify({ status }) },
   );
+}
+
+export function fetchStatsSummary() {
+  return apiFetch<ArtistStatusCounts>("/v1/stats/summary");
+}
+
+export function fetchStatsHealth() {
+  return apiFetch<ServiceHealthResponse>("/v1/stats/health");
+}
+
+export function fetchStatsGenres() {
+  return apiFetch<GenreStatsResponse>("/v1/stats/genres");
+}
+
+export function fetchStatsScores() {
+  return apiFetch<ScoreDistributionResponse>("/v1/stats/scores");
+}
+
+export function fetchStatsDiscoveries() {
+  return apiFetch<WeeklyDiscoveriesResponse>("/v1/stats/discoveries");
+}
+
+export function fetchStatsNovelty() {
+  return apiFetch<NoveltyRatioResponse>("/v1/stats/novelty");
+}
+
+export function fetchStatsSources() {
+  return apiFetch<ArtistSourcesResponse>("/v1/stats/sources");
+}
+
+export function fetchStatsVelocity() {
+  return apiFetch<PlayVelocityResponse>("/v1/stats/velocity");
+}
+
+export function fetchStatsBreakdown() {
+  return apiFetch<ScoreBreakdownAverages>("/v1/stats/breakdown");
+}
+
+export function fetchStatsCoverage() {
+  return apiFetch<ExplorationCoverageResponse>("/v1/stats/coverage");
+}
+
+export function fetchStatsFunnel() {
+  return apiFetch<PipelineFunnelResponse>("/v1/stats/funnel");
 }

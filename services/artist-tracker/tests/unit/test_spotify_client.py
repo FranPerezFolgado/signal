@@ -86,10 +86,10 @@ class TestGetTopTracks:
         assert len(tracks) == 1
         assert tracks[0]["name"] == "Ascending"
 
-    def test_market_param_included(self):
+    def test_no_market_param(self):
         client = _make_client()
         with patch.object(client, "_get", return_value={"tracks": []}) as mock_get:
             client.get_top_tracks("spotify:artist:3G3Gdm4")
 
-        call_kwargs = mock_get.call_args[1]
-        assert call_kwargs.get("params") == {"market": "from_token"}
+        call_args = mock_get.call_args
+        assert call_args[1].get("params") is None or "market" not in (call_args[1].get("params") or {})

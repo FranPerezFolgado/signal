@@ -8,6 +8,7 @@ class Settings(CommonSettings):
     pool_max_size: int = 10
     # API has no Kafka dependency; override to avoid requiring the env var
     kafka_bootstrap_servers: str = ""
+    stats_stale_threshold_minutes: int = 30
 
 
 _settings: Settings | None = None
