@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from signal_api.deps import get_db
 from signal_api.kafka_admin import get_pipeline_stats
@@ -148,7 +148,7 @@ def get_stats_active_genres(
 
 @router.get("/stats/stale", response_model=StaleRecsResponse)
 def get_stats_stale(
-    threshold_days: int = 14,
+    threshold_days: int = Query(default=14, ge=1, le=3650),
     conn: psycopg.Connection = Depends(get_db),
 ) -> StaleRecsResponse:
     result = StatsRepository(conn).get_stale_recs(threshold_days)

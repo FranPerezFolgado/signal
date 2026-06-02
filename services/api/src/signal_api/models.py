@@ -228,6 +228,14 @@ class TopArtistsResponse(BaseModel):
     artists: list[TopArtistEntry]
 
 
+class LoyalArtistEntry(TopArtistEntry):
+    pass
+
+
+class LoyalArtistsResponse(BaseModel):
+    artists: list[LoyalArtistEntry]
+
+
 class DailyPlayPoint(BaseModel):
     date: str
     plays: int

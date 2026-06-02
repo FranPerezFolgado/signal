@@ -179,6 +179,12 @@ export interface TopArtistsResponse {
   artists: TopArtistEntry[];
 }
 
+export type LoyalArtistEntry = TopArtistEntry;
+
+export interface LoyalArtistsResponse {
+  artists: LoyalArtistEntry[];
+}
+
 export interface DailyPlayPoint {
   date: string;
   plays: number;

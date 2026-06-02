@@ -13,6 +13,7 @@ import type {
   GenreDriftResponse,
   GenreLandscapeResponse,
   GenreStatsResponse,
+  LoyalArtistsResponse,
   GenreStreamResponse,
   HeadlineResponse,
   ListeningClockResponse,
@@ -190,7 +191,7 @@ export function fetchReportsCalendar(fromDate: string | null, toDate: string | n
 }
 
 export function fetchReportsLoyalArtists(fromDate: string | null, toDate: string | null) {
-  return apiFetch<TopArtistsResponse>(`/v1/reports/loyal-artists${periodParams(fromDate, toDate)}`);
+  return apiFetch<LoyalArtistsResponse>(`/v1/reports/loyal-artists${periodParams(fromDate, toDate)}`);
 }
 
 export function fetchReportsSourceEffectiveness(fromDate: string | null, toDate: string | null) {

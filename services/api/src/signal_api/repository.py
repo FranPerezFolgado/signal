@@ -451,7 +451,7 @@ class StatsRepository:
                     COUNT(*) FILTER (WHERE status = 'BLACKLISTED') AS blacklisted,
                     COUNT(*) AS total_meaningful
                 FROM artists
-                WHERE status != 'TRACKED'
+                WHERE status IN ('FOLLOWING', 'PUBLISHED', 'BLACKLISTED')
                 """
             )
             row = cur.fetchone()
@@ -487,8 +487,12 @@ class StatsRepository:
                 SELECT COUNT(*) AS count, MIN(status_changed_at) AS oldest_status_changed_at
                 FROM artists
                 WHERE status = 'TRACKED'
-                  AND (status_changed_at IS NULL
-                       OR status_changed_at < now() - make_interval(days => %s))
+                  AND (
+                    -- NULL means the artist was seeded before status_changed_at was tracked;
+                    -- treat as "never reviewed" and therefore stale
+                    status_changed_at IS NULL
+                    OR status_changed_at < now() - make_interval(days => %s)
+                  )
                 """,
                 [threshold_days],
             )
@@ -504,29 +508,24 @@ class StatsRepository:
         with self._conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
                 """
+                WITH raw AS (
+                    SELECT
+                        CASE
+                            WHEN updated_at >= now() - interval '1 day'   THEN 1
+                            WHEN updated_at >= now() - interval '7 days'  THEN 2
+                            WHEN updated_at >= now() - interval '30 days' THEN 3
+                            ELSE 4
+                        END AS bucket
+                    FROM artist_recommendations
+                )
                 SELECT
-                    CASE
-                        WHEN updated_at >= now() - interval '1 day'   THEN '<1D'
-                        WHEN updated_at >= now() - interval '7 days'  THEN '1-7D'
-                        WHEN updated_at >= now() - interval '30 days' THEN '7-30D'
-                        ELSE '>30D'
-                    END AS label,
-                    CASE
-                        WHEN updated_at >= now() - interval '1 day'   THEN 1
-                        WHEN updated_at >= now() - interval '7 days'  THEN 2
-                        WHEN updated_at >= now() - interval '30 days' THEN 3
-                        ELSE 4
-                    END AS sort_order,
-                    CASE
-                        WHEN updated_at >= now() - interval '1 day'   THEN 1
-                        WHEN updated_at >= now() - interval '7 days'  THEN 7
-                        WHEN updated_at >= now() - interval '30 days' THEN 30
-                        ELSE NULL
-                    END AS max_age_days,
+                    CASE bucket WHEN 1 THEN '<1D' WHEN 2 THEN '1-7D' WHEN 3 THEN '7-30D' ELSE '>30D' END AS label,
+                    bucket AS sort_order,
+                    CASE bucket WHEN 1 THEN 1 WHEN 2 THEN 7 WHEN 3 THEN 30 ELSE NULL END AS max_age_days,
                     COUNT(*) AS count
-                FROM artist_recommendations
-                GROUP BY label, sort_order, max_age_days
-                ORDER BY sort_order
+                FROM raw
+                GROUP BY bucket
+                ORDER BY bucket
                 """
             )
             return [
@@ -1147,6 +1146,8 @@ class ReportsRepository:
         ]
 
     def get_source_effectiveness(self, from_date: date | None, to_date: date | None) -> list[dict]:
+        # Filters on first_seen_at (artist discovery date), not played_at, so _date_filter()
+        # is intentionally not used here — it targets listening_history.played_at.
         if from_date and to_date:
             where_extra = "AND first_seen_at >= %s AND first_seen_at < %s"
             params: list = [from_date, to_date + timedelta(days=1)]

@@ -17,6 +17,7 @@ from signal_api.models import (
     HeadlineResponse,
     ListeningClockResponse,
     ListeningRatioResponse,
+    LoyalArtistsResponse,
     PlaysTrendResponse,
     ReportsFunnelResponse,
     SourceEffectivenessResponse,
@@ -207,15 +208,15 @@ def get_reports_calendar(
     return CalendarResponse(**result)
 
 
-@router.get("/reports/loyal-artists", response_model=TopArtistsResponse)
+@router.get("/reports/loyal-artists", response_model=LoyalArtistsResponse)
 def get_reports_loyal_artists(
     from_date: date | None = None,
     to_date: date | None = None,
     conn: psycopg.Connection = Depends(get_db),
-) -> TopArtistsResponse:
+) -> LoyalArtistsResponse:
     from_date, to_date = _validate_dates(from_date, to_date)
     rows = ReportsRepository(conn).get_loyal_artists(from_date, to_date)
-    return TopArtistsResponse(artists=rows)
+    return LoyalArtistsResponse(artists=rows)
 
 
 @router.get("/reports/source-effectiveness", response_model=SourceEffectivenessResponse)

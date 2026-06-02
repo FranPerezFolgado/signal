@@ -122,7 +122,7 @@ function ServiceHealthStrip() {
 // ─── Novelty Ratio ────────────────────────────────────────────────────────────
 
 function NoveltyRatioSection() {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
     queryKey: ["stats", "novelty"],
     queryFn: fetchStatsNovelty,
   });
@@ -141,7 +141,7 @@ function NoveltyRatioSection() {
     >
       {isLoading && <SectionSkeleton />}
       {isError && <SectionError label="NOVELTY DATA UNAVAILABLE" refetch={refetch} />}
-      {chartData && (
+      {isSuccess && chartData && (
         <div className="px-2 pb-2" style={{ height: CHART_HEIGHT }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
@@ -168,10 +168,10 @@ function NoveltyRatioSection() {
               <Line
                 type="monotone"
                 dataKey="ratio"
-                stroke="var(--signal-orange)"
+                stroke="var(--color-signal-orange)"
                 strokeWidth={1.5}
                 dot={false}
-                activeDot={{ r: 3, fill: "var(--signal-orange)" }}
+                activeDot={{ r: 3, fill: "var(--color-signal-orange)" }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -184,7 +184,7 @@ function NoveltyRatioSection() {
 // ─── New Artists Per Week ─────────────────────────────────────────────────────
 
 function WeeklyDiscoveriesSection() {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
     queryKey: ["stats", "discoveries"],
     queryFn: fetchStatsDiscoveries,
   });
@@ -203,7 +203,7 @@ function WeeklyDiscoveriesSection() {
     >
       {isLoading && <SectionSkeleton />}
       {isError && <SectionError label="DISCOVERIES UNAVAILABLE" refetch={refetch} />}
-      {chartData && (
+      {isSuccess && chartData && (
         <div className="px-2 pb-2" style={{ height: CHART_HEIGHT }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} barCategoryGap="20%">
@@ -225,7 +225,7 @@ function WeeklyDiscoveriesSection() {
                 cursor={{ fill: "var(--color-border)" }}
                 formatter={(v: number) => [v, "artists"]}
               />
-              <Bar dataKey="count" fill="var(--signal-orange)" radius={[1, 1, 0, 0]} />
+              <Bar dataKey="count" fill="var(--color-signal-orange)" radius={[1, 1, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -237,7 +237,7 @@ function WeeklyDiscoveriesSection() {
 // ─── Most Active Sources ──────────────────────────────────────────────────────
 
 const SOURCE_COLORS = [
-  "var(--signal-orange)",
+  "var(--color-signal-orange)",
   "hsl(0 0% 60%)",
   "hsl(0 0% 45%)",
   "hsl(0 0% 32%)",
@@ -316,7 +316,7 @@ const SCORE_COLORS = [
   "hsl(0 0% 42%)",         // 20–40 gray
   "hsl(38 75% 52%)",       // 40–60 amber
   "hsl(142 45% 44%)",      // 60–80 green
-  "var(--signal-orange)",  // 80–100 orange
+  "var(--color-signal-orange)",  // 80–100 orange
 ];
 
 function ScoreDistributionSection() {
@@ -378,7 +378,7 @@ function ScoreDistributionSection() {
 
 const STATUS_ORDER = ["TRACKED", "FOLLOWING", "PUBLISHED", "BLACKLISTED"];
 const STATUS_COLORS: Record<string, string> = {
-  TRACKED: "var(--signal-orange)",
+  TRACKED: "var(--color-signal-orange)",
   FOLLOWING: "hsl(142 45% 44%)",
   PUBLISHED: "hsl(210 60% 52%)",
   BLACKLISTED: "hsl(0 0% 35%)",
@@ -454,7 +454,7 @@ function ScoreBreakdownSection() {
   const factors =
     data && data.avg_genre_novelty != null && data.avg_popularity_norm != null
       ? [
-          { label: "GENRE NOVELTY", value: data.avg_genre_novelty, color: "var(--signal-orange)" },
+          { label: "GENRE NOVELTY", value: data.avg_genre_novelty, color: "var(--color-signal-orange)" },
           { label: "POPULARITY", value: data.avg_popularity_norm, color: "hsl(142 45% 44%)" },
         ]
       : null;
@@ -505,7 +505,7 @@ function ScoreBreakdownSection() {
 // ─── Play Velocity ────────────────────────────────────────────────────────────
 
 function PlayVelocitySection() {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
     queryKey: ["stats", "velocity"],
     queryFn: fetchStatsVelocity,
   });
@@ -526,7 +526,7 @@ function PlayVelocitySection() {
     >
       {isLoading && <SectionSkeleton />}
       {isError && <SectionError label="VELOCITY DATA UNAVAILABLE" refetch={refetch} />}
-      {chartData && (
+      {isSuccess && chartData && (
         <div>
           <div className="px-2 pb-2" style={{ height: CHART_HEIGHT }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -549,7 +549,7 @@ function PlayVelocitySection() {
                   cursor={{ fill: "var(--color-border)" }}
                   formatter={(v: number) => [v.toLocaleString(), "plays"]}
                 />
-                <Bar dataKey="plays" fill="var(--signal-orange)" radius={[1, 1, 0, 0]} opacity={0.85} />
+                <Bar dataKey="plays" fill="var(--color-signal-orange)" radius={[1, 1, 0, 0]} opacity={0.85} />
               </BarChart>
             </ResponsiveContainer>
           </div>

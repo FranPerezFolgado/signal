@@ -234,6 +234,42 @@ function HeadlinePanel({
   );
 }
 
+// ─── Shared ranked list ───────────────────────────────────────────────────────
+
+function RankedArtistList({
+  artists,
+  barColor = "bg-signal-orange",
+}: {
+  artists: { rank: number; name: string; plays: number; weight: number }[];
+  barColor?: string;
+}) {
+  return (
+    <div className="divide-y divide-border">
+      {artists.map((a) => (
+        <div key={a.rank} className="flex items-center gap-3 py-2">
+          <span className="mono w-5 text-right text-[9px] tabular-nums text-muted-foreground">
+            {a.rank}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="mono truncate text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">
+              {a.name}
+            </div>
+            <div className="mt-0.5 h-1 w-full rounded-none bg-panel-raised">
+              <div
+                className={`h-full ${barColor}`}
+                style={{ width: `${Math.round(a.weight * 100)}%` }}
+              />
+            </div>
+          </div>
+          <span className="mono text-[10px] tabular-nums text-muted-foreground">
+            {a.plays.toLocaleString()}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Top artists panel ────────────────────────────────────────────────────────
 
 function TopArtistsPanel({
@@ -253,31 +289,7 @@ function TopArtistsPanel({
   if (isError) return <SectionError label="TOP ARTISTS UNAVAILABLE" refetch={refetch} />;
   if (!data || data.artists.length === 0) return <Empty label="NO PLAYS IN PERIOD" />;
 
-  return (
-    <div className="divide-y divide-border">
-      {data.artists.map((a) => (
-        <div key={a.rank} className="flex items-center gap-3 py-2">
-          <span className="mono w-5 text-right text-[9px] tabular-nums text-muted-foreground">
-            {a.rank}
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="mono truncate text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">
-              {a.name}
-            </div>
-            <div className="mt-0.5 h-1 w-full rounded-none bg-panel-raised">
-              <div
-                className="h-full bg-signal-orange"
-                style={{ width: `${Math.round(a.weight * 100)}%` }}
-              />
-            </div>
-          </div>
-          <span className="mono text-[10px] tabular-nums text-muted-foreground">
-            {a.plays.toLocaleString()}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
+  return <RankedArtistList artists={data.artists} />;
 }
 
 // ─── Genre landscape panel ────────────────────────────────────────────────────
@@ -871,14 +883,17 @@ function DiscoveryHighlightPanel({
   fromDate: string | null;
   toDate: string | null;
 }) {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["reports", "discovery-highlight", fromDate, toDate],
     queryFn: () => fetchReportsDiscoveryHighlight(fromDate, toDate),
     staleTime: 30_000,
-    enabled: fromDate !== null,
+    enabled: fromDate !== null && toDate !== null,
   });
 
-  if (!fromDate || isLoading || isError || !data?.available) return null;
+  if (!fromDate) return null;
+  if (isLoading) return <SectionSkeleton height={72} />;
+  if (isError) return <SectionError label="DISCOVERY HIGHLIGHT UNAVAILABLE" refetch={refetch} />;
+  if (!data?.available) return null;
 
   return (
     <div className="border border-signal-orange/30 bg-signal-orange/5 p-4 space-y-1">
@@ -1010,28 +1025,25 @@ function CalendarHeatmapPanel({
   data.days.forEach((d) => { playMap[d.date] = d.plays; });
   const maxPlays = Math.max(...Object.values(playMap), 1);
 
-  const start = new Date(data.from_date + "T00:00:00");
-  const end = new Date(data.to_date + "T00:00:00");
+  // Parse as UTC midnight to avoid local-timezone date shifts in toISOString()
+  const start = new Date(data.from_date + "T00:00:00Z");
+  const end = new Date(data.to_date + "T00:00:00Z");
 
-  // Align start to Monday (getDay: 0=Sun,1=Mon…6=Sat → shift to Mon=0)
-  const dow0 = (start.getDay() + 6) % 7;
+  // Align to Monday — getUTCDay: 0=Sun…6=Sat → (day+6)%7: Mon=0, Sun=6
+  const dow0 = (start.getUTCDay() + 6) % 7;
   const firstCell = new Date(start);
-  firstCell.setDate(firstCell.getDate() - dow0);
+  firstCell.setUTCDate(firstCell.getUTCDate() - dow0);
 
   const weeks: { date: string; plays: number; inRange: boolean }[][] = [];
   const cur = new Date(firstCell);
-  while (cur <= end || weeks.length === 0 || weeks[weeks.length - 1].length < 7) {
+  while (cur <= end) {
     const week: { date: string; plays: number; inRange: boolean }[] = [];
     for (let d = 0; d < 7; d++) {
       const dateStr = cur.toISOString().slice(0, 10);
       week.push({ date: dateStr, plays: playMap[dateStr] ?? 0, inRange: cur >= start && cur <= end });
-      cur.setDate(cur.getDate() + 1);
+      cur.setUTCDate(cur.getUTCDate() + 1);
     }
     weeks.push(week);
-    if (cur > end && weeks[weeks.length - 1].every((c) => !c.inRange)) {
-      weeks.pop();
-      break;
-    }
   }
 
   const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -1090,31 +1102,7 @@ function LoyalArtistsPanel({
   if (isError) return <SectionError label="LOYAL ARTISTS UNAVAILABLE" refetch={refetch} />;
   if (!data || data.artists.length === 0) return <Empty label="NO LOYAL ARTISTS IN PERIOD" />;
 
-  return (
-    <div className="divide-y divide-border">
-      {data.artists.map((a) => (
-        <div key={a.rank} className="flex items-center gap-3 py-2">
-          <span className="mono w-5 text-right text-[9px] tabular-nums text-muted-foreground">
-            {a.rank}
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="mono truncate text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">
-              {a.name}
-            </div>
-            <div className="mt-0.5 h-1 w-full rounded-none bg-panel-raised">
-              <div
-                className="h-full bg-zinc-400"
-                style={{ width: `${Math.round(a.weight * 100)}%` }}
-              />
-            </div>
-          </div>
-          <span className="mono text-[10px] tabular-nums text-muted-foreground">
-            {a.plays.toLocaleString()}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
+  return <RankedArtistList artists={data.artists} barColor="bg-zinc-400" />;
 }
 
 // ─── Source effectiveness panel ───────────────────────────────────────────────
