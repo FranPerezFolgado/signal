@@ -23,6 +23,7 @@ import {
   fetchStatsFunnel,
   fetchStatsHealth,
   fetchStatsNovelty,
+  fetchStatsPipeline,
   fetchStatsScores,
   fetchStatsSources,
   fetchStatsVelocity,
@@ -604,6 +605,103 @@ function ExplorationCoverageSection() {
   );
 }
 
+// ─── Kafka Pipeline Section ───────────────────────────────────────────────────
+
+const STATUS_COLOR: Record<string, string> = {
+  ACTIVE: "bg-signal-green",
+  PROCESSING: "bg-signal-orange",
+  STALLED: "bg-signal-red",
+  IDLE: "bg-zinc-600",
+};
+
+const STATUS_TEXT_COLOR: Record<string, string> = {
+  ACTIVE: "text-signal-green",
+  PROCESSING: "text-signal-orange",
+  STALLED: "text-signal-red",
+  IDLE: "text-zinc-500",
+};
+
+function formatLag(n: number): string {
+  if (n === 0) return "0";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
+function KafkaPipelineSection() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["stats", "pipeline"],
+    queryFn: fetchStatsPipeline,
+    refetchInterval: 10_000,
+    retry: false,
+  });
+
+  return (
+    <FaceplatePanel
+      slug="04.K"
+      label="KAFKA PIPELINE"
+      info="Consumer group lag and status for each pipeline service. Refreshes every 10 seconds. LAG = messages queued but not yet processed."
+    >
+      {isLoading && <SectionSkeleton height={160} />}
+      {isError && (
+        <div className="mono flex items-center justify-between p-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <span>Kafka unreachable</span>
+          <button onClick={() => refetch()} className="underline hover:text-foreground">
+            RETRY
+          </button>
+        </div>
+      )}
+      {data && data.services.length === 0 && (
+        <div className="mono p-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          NO KAFKA CONNECTION
+        </div>
+      )}
+      {data && data.services.length > 0 && (
+        <div className="divide-y divide-border">
+          {/* Header row */}
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-1.5">
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">SERVICE</span>
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">PROCESSED</span>
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">LAG</span>
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">STATUS</span>
+          </div>
+          {data.services.map((svc) => (
+            <div
+              key={svc.service}
+              className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center px-4 py-2.5"
+            >
+              <div>
+                <div className="mono text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">
+                  {svc.service}
+                </div>
+                <div className="mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground mt-0.5">
+                  {svc.topic}
+                </div>
+              </div>
+              <span className="mono text-[10px] tabular-nums text-muted-foreground text-right w-16">
+                {formatLag(svc.processed)}
+              </span>
+              <span
+                className={`mono text-[10px] tabular-nums font-bold text-right w-16 ${
+                  svc.lag > 0 ? "text-signal-orange" : "text-muted-foreground"
+                }`}
+              >
+                {formatLag(svc.lag)}
+              </span>
+              <div className="flex items-center justify-end gap-1.5 w-16">
+                <div className={`w-1.5 h-1.5 rounded-full ${STATUS_COLOR[svc.status] ?? "bg-zinc-600"}`} />
+                <span className={`mono text-[9px] uppercase tracking-[0.12em] ${STATUS_TEXT_COLOR[svc.status] ?? "text-zinc-500"}`}>
+                  {svc.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </FaceplatePanel>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function StatsPage() {
@@ -621,6 +719,7 @@ function StatsPage() {
           <PlayVelocitySection />
           <ExplorationCoverageSection />
         </div>
+        <KafkaPipelineSection />
       </div>
     </TooltipProvider>
   );

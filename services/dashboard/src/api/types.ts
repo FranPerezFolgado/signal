@@ -141,3 +141,86 @@ export interface StatusBucket {
 export interface PipelineFunnelResponse {
   statuses: StatusBucket[];
 }
+
+export interface PipelineServiceStat {
+  service: string;
+  group: string;
+  topic: string;
+  status: "ACTIVE" | "PROCESSING" | "STALLED" | "IDLE";
+  lag: number;
+  processed: number;
+  consumers: number;
+}
+
+export interface PipelineStatsResponse {
+  services: PipelineServiceStat[];
+}
+
+// --- Reports types ---
+
+export interface HeadlineResponse {
+  total_plays: number;
+  unique_artists: number;
+}
+
+export interface TopArtistEntry {
+  rank: number;
+  name: string;
+  plays: number;
+  weight: number;
+}
+
+export interface TopArtistsResponse {
+  artists: TopArtistEntry[];
+}
+
+export interface DailyPlayPoint {
+  date: string;
+  plays: number;
+}
+
+export interface PlaysTrendResponse {
+  days: DailyPlayPoint[];
+}
+
+export interface GenreEntry {
+  genre: string;
+  plays: number;
+  weight: number;
+}
+
+export interface GenreLandscapeResponse {
+  genres: GenreEntry[];
+}
+
+export interface DiscoveryMonthPoint {
+  month: string;
+  count: number;
+}
+
+export interface DiscoveryTimelineResponse {
+  months: DiscoveryMonthPoint[];
+}
+
+export interface ListeningRatioResponse {
+  familiar_plays: number;
+  new_plays: number;
+  unknown_plays: number;
+  familiar_pct: number;
+  new_pct: number;
+}
+
+export interface StreakResponse {
+  current: number;
+  longest: number;
+}
+
+export interface FunnelEntry {
+  status: string;
+  count: number;
+}
+
+export interface ReportsFunnelResponse {
+  entries: FunnelEntry[];
+  period_filtered: boolean;
+}

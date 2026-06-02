@@ -4,16 +4,25 @@ import type {
   ArtistSourcesResponse,
   ArtistStatus,
   ArtistStatusCounts,
+  DiscoveryTimelineResponse,
   ExplorationCoverageResponse,
+  GenreLandscapeResponse,
   GenreStatsResponse,
+  HeadlineResponse,
+  ListeningRatioResponse,
   NoveltyRatioResponse,
   PaginatedResponse,
   PipelineFunnelResponse,
+  PipelineStatsResponse,
   PlayVelocityResponse,
+  PlaysTrendResponse,
   RecommendationItem,
+  ReportsFunnelResponse,
   ScoreBreakdownAverages,
   ScoreDistributionResponse,
   ServiceHealthResponse,
+  StreakResponse,
+  TopArtistsResponse,
   WeeklyDiscoveriesResponse,
 } from "./types";
 
@@ -86,4 +95,50 @@ export function fetchStatsCoverage() {
 
 export function fetchStatsFunnel() {
   return apiFetch<PipelineFunnelResponse>("/v1/stats/funnel");
+}
+
+export function fetchStatsPipeline() {
+  return apiFetch<PipelineStatsResponse>("/v1/stats/pipeline");
+}
+
+// ─── Reports queries ──────────────────────────────────────────────────────────
+
+function periodParams(fromDate: string | null, toDate: string | null) {
+  const p = new URLSearchParams();
+  if (fromDate) p.set("from_date", fromDate);
+  if (toDate) p.set("to_date", toDate);
+  const qs = p.toString();
+  return qs ? `?${qs}` : "";
+}
+
+export function fetchReportsHeadline(fromDate: string | null, toDate: string | null) {
+  return apiFetch<HeadlineResponse>(`/v1/reports/headline${periodParams(fromDate, toDate)}`);
+}
+
+export function fetchReportsTopArtists(fromDate: string | null, toDate: string | null) {
+  return apiFetch<TopArtistsResponse>(`/v1/reports/top-artists${periodParams(fromDate, toDate)}`);
+}
+
+export function fetchReportsPlaysTrend(fromDate: string | null, toDate: string | null) {
+  return apiFetch<PlaysTrendResponse>(`/v1/reports/plays-trend${periodParams(fromDate, toDate)}`);
+}
+
+export function fetchReportsGenres(fromDate: string | null, toDate: string | null) {
+  return apiFetch<GenreLandscapeResponse>(`/v1/reports/genres${periodParams(fromDate, toDate)}`);
+}
+
+export function fetchReportsDiscoveryTimeline(fromDate: string | null, toDate: string | null) {
+  return apiFetch<DiscoveryTimelineResponse>(`/v1/reports/discovery-timeline${periodParams(fromDate, toDate)}`);
+}
+
+export function fetchReportsListeningRatio(fromDate: string | null, toDate: string | null) {
+  return apiFetch<ListeningRatioResponse>(`/v1/reports/listening-ratio${periodParams(fromDate, toDate)}`);
+}
+
+export function fetchReportsStreak(fromDate: string | null, toDate: string | null) {
+  return apiFetch<StreakResponse>(`/v1/reports/streak${periodParams(fromDate, toDate)}`);
+}
+
+export function fetchReportsFunnel(fromDate: string | null, toDate: string | null) {
+  return apiFetch<ReportsFunnelResponse>(`/v1/reports/funnel${periodParams(fromDate, toDate)}`);
 }
