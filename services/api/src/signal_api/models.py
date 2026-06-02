@@ -15,10 +15,15 @@ class ScoreBreakdown(BaseModel):
     popularity_norm: float
 
 
+class EvidenceTrack(BaseModel):
+    text: str
+    track_id: str | None = None
+
+
 class ArtistRecommendation(BaseModel):
     score: float
     breakdown: ScoreBreakdown | None
-    evidence_tracks: list[str]
+    evidence_tracks: list[EvidenceTrack]
     updated_at: datetime
 
 
@@ -50,7 +55,7 @@ class RecommendationListItem(BaseModel):
     genres: list[str]
     score: float
     breakdown: ScoreBreakdown | None
-    evidence_tracks: list[str]
+    evidence_tracks: list[EvidenceTrack]
     spotify_id: str | None
     updated_at: datetime
 
@@ -63,6 +68,15 @@ class PatchStatusResponse(BaseModel):
     id: UUID
     name: str
     status: ArtistStatus
+
+
+class SpotifyPatchRequest(BaseModel):
+    spotify_id: str
+
+
+class SpotifyPatchResponse(BaseModel):
+    id: UUID
+    name: str
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
@@ -263,3 +277,102 @@ class FunnelEntry(BaseModel):
 class ReportsFunnelResponse(BaseModel):
     entries: list[FunnelEntry]
     period_filtered: bool
+
+
+class HourlyPlayPoint(BaseModel):
+    hour: int
+    plays: int
+
+
+class ListeningClockResponse(BaseModel):
+    hours: list[HourlyPlayPoint]
+
+
+class FingerprintResponse(BaseModel):
+    consistency: float
+    variety: float
+    discovery: float
+    night_owl: float
+    depth: float
+
+
+class GenreStreamPoint(BaseModel):
+    week_start: str
+    plays: dict[str, int]
+
+
+class GenreStreamResponse(BaseModel):
+    top_genres: list[str]
+    points: list[GenreStreamPoint]
+
+
+# --- Stats backlog models ---
+
+class BlacklistRateResponse(BaseModel):
+    blacklisted: int
+    total_meaningful: int
+    rate: float
+
+
+class StaleRecsResponse(BaseModel):
+    count: int
+    threshold_days: int
+    oldest_status_changed_at: datetime | None
+
+
+class ScoreFreshnessBucket(BaseModel):
+    label: str
+    max_age_days: int | None
+    count: int
+
+
+class ScoreFreshnessResponse(BaseModel):
+    buckets: list[ScoreFreshnessBucket]
+
+
+# --- Reports backlog models ---
+
+class WeeklyDiscoveryPoint(BaseModel):
+    week_start: str
+    count: int
+
+
+class WeeklyDiscoveryRateResponse(BaseModel):
+    weeks: list[WeeklyDiscoveryPoint]
+
+
+class DiscoveryHighlightResponse(BaseModel):
+    available: bool
+    name: str | None = None
+    plays: int | None = None
+    first_seen_at: datetime | None = None
+    genres: list[str] = []
+    spotify_id: str | None = None
+
+
+class GenreDriftResponse(BaseModel):
+    current: list[GenreEntry]
+    previous: list[GenreEntry]
+    period_days: int | None
+
+
+class CalendarDay(BaseModel):
+    date: str
+    plays: int
+
+
+class CalendarResponse(BaseModel):
+    days: list[CalendarDay]
+    from_date: str
+    to_date: str
+
+
+class SourceEffectivenessEntry(BaseModel):
+    source: str
+    total: int
+    published: int
+    publish_rate: float
+
+
+class SourceEffectivenessResponse(BaseModel):
+    sources: list[SourceEffectivenessEntry]

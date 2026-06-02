@@ -18,6 +18,11 @@ export interface ArtistListItem {
   origin_artist_name: string | null;
 }
 
+export interface EvidenceTrack {
+  text: string;
+  track_id: string | null;
+}
+
 export interface RecommendationItem {
   id: string;
   name: string;
@@ -26,7 +31,7 @@ export interface RecommendationItem {
   genres: string[];
   score: number;
   breakdown: ScoreBreakdown | null;
-  evidence_tracks: string[];
+  evidence_tracks: EvidenceTrack[];
   spotify_id: string | null;
   updated_at: string;
 }
@@ -223,4 +228,99 @@ export interface FunnelEntry {
 export interface ReportsFunnelResponse {
   entries: FunnelEntry[];
   period_filtered: boolean;
+}
+
+export interface HourlyPlayPoint {
+  hour: number;
+  plays: number;
+}
+
+export interface ListeningClockResponse {
+  hours: HourlyPlayPoint[];
+}
+
+export interface FingerprintResponse {
+  consistency: number;
+  variety: number;
+  discovery: number;
+  night_owl: number;
+  depth: number;
+}
+
+export interface GenreStreamPoint {
+  week_start: string;
+  plays: Record<string, number>;
+}
+
+export interface GenreStreamResponse {
+  top_genres: string[];
+  points: GenreStreamPoint[];
+}
+
+// --- Stats backlog types ---
+
+export interface BlacklistRateResponse {
+  blacklisted: number;
+  total_meaningful: number;
+  rate: number;
+}
+
+export interface StaleRecsResponse {
+  count: number;
+  threshold_days: number;
+  oldest_status_changed_at: string | null;
+}
+
+export interface ScoreFreshnessBucket {
+  label: string;
+  max_age_days: number | null;
+  count: number;
+}
+
+export interface ScoreFreshnessResponse {
+  buckets: ScoreFreshnessBucket[];
+}
+
+// --- Reports backlog types ---
+
+export interface WeeklyDiscoveryPoint {
+  week_start: string;
+  count: number;
+}
+
+export interface WeeklyDiscoveryRateResponse {
+  weeks: WeeklyDiscoveryPoint[];
+}
+
+export interface DiscoveryHighlightResponse {
+  available: boolean;
+  name: string | null;
+  plays: number | null;
+  first_seen_at: string | null;
+  genres: string[];
+  spotify_id: string | null;
+}
+
+export interface GenreDriftResponse {
+  current: GenreEntry[];
+  previous: GenreEntry[];
+  period_days: number | null;
+}
+
+export interface CalendarDay {
+  date: string;
+  plays: number;
+}
+
+export interface CalendarResponse {
+  days: CalendarDay[];
+  from_date: string;
+  to_date: string;
+}
+
+export interface SourceEffectivenessEntry {
+  source: string;
+  total: number;
+  published: number;
+  publish_rate: number;
 }

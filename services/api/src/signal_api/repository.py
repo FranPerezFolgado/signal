@@ -89,11 +89,14 @@ class ArtistRepository:
                     r.score, r.score_breakdown, r.updated_at,
                     (
                         SELECT COALESCE(jsonb_agg(
-                            CASE
-                                WHEN lh.title IS NOT NULL
-                                THEN lh.artist || ' — ' || lh.title
-                                ELSE e
-                            END
+                            jsonb_build_object(
+                                'text', CASE
+                                    WHEN lh.title IS NOT NULL
+                                    THEN lh.artist || ' — ' || lh.title
+                                    ELSE e
+                                END,
+                                'track_id', lh.track_id
+                            )
                         ), '[]'::jsonb)
                         FROM jsonb_array_elements_text(r.evidence_tracks) e
                         LEFT JOIN listening_history lh ON lh.signal_id = e
@@ -122,6 +125,21 @@ class ArtistRepository:
             total = count_row["total"]
 
         return rows, total
+
+    def update_artist_spotify(self, artist_id: UUID, spotify_id: str) -> dict | None:
+        with self._conn.transaction(), self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                UPDATE artists
+                SET external_ids = COALESCE(external_ids, '{}'::jsonb)
+                                 || jsonb_build_object('spotify', %s::text),
+                    last_explored_at = NULL
+                WHERE id = %s
+                RETURNING id, name
+                """,
+                [f"spotify:artist:{spotify_id}", str(artist_id)],
+            )
+            return cur.fetchone()
 
     def update_artist_status(self, artist_id: UUID, new_status: str) -> dict | None:
         with self._conn.transaction(), self._conn.cursor(row_factory=dict_row) as cur:
@@ -425,6 +443,97 @@ class StatsRepository:
             )
             return cur.fetchall()
 
+    def get_blacklist_rate(self) -> dict:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    COUNT(*) FILTER (WHERE status = 'BLACKLISTED') AS blacklisted,
+                    COUNT(*) AS total_meaningful
+                FROM artists
+                WHERE status != 'TRACKED'
+                """
+            )
+            row = cur.fetchone()
+            assert row is not None
+        blacklisted = int(row["blacklisted"])
+        total = int(row["total_meaningful"])
+        return {
+            "blacklisted": blacklisted,
+            "total_meaningful": total,
+            "rate": round(blacklisted / max(total, 1), 4),
+        }
+
+    def get_active_genres(self, top_n: int = 20) -> list[dict]:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT genre, COUNT(*) AS artist_count
+                FROM artists, UNNEST(genres) AS genre
+                WHERE status IN ('TRACKED', 'FOLLOWING')
+                  AND genre IS NOT NULL AND TRIM(genre) != ''
+                GROUP BY genre
+                ORDER BY artist_count DESC
+                LIMIT %s
+                """,
+                [top_n],
+            )
+            return cur.fetchall()
+
+    def get_stale_recs(self, threshold_days: int = 14) -> dict:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT COUNT(*) AS count, MIN(status_changed_at) AS oldest_status_changed_at
+                FROM artists
+                WHERE status = 'TRACKED'
+                  AND (status_changed_at IS NULL
+                       OR status_changed_at < now() - make_interval(days => %s))
+                """,
+                [threshold_days],
+            )
+            row = cur.fetchone()
+            assert row is not None
+        return {
+            "count": int(row["count"]),
+            "threshold_days": threshold_days,
+            "oldest_status_changed_at": row["oldest_status_changed_at"],
+        }
+
+    def get_score_freshness(self) -> list[dict]:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    CASE
+                        WHEN updated_at >= now() - interval '1 day'   THEN '<1D'
+                        WHEN updated_at >= now() - interval '7 days'  THEN '1-7D'
+                        WHEN updated_at >= now() - interval '30 days' THEN '7-30D'
+                        ELSE '>30D'
+                    END AS label,
+                    CASE
+                        WHEN updated_at >= now() - interval '1 day'   THEN 1
+                        WHEN updated_at >= now() - interval '7 days'  THEN 2
+                        WHEN updated_at >= now() - interval '30 days' THEN 3
+                        ELSE 4
+                    END AS sort_order,
+                    CASE
+                        WHEN updated_at >= now() - interval '1 day'   THEN 1
+                        WHEN updated_at >= now() - interval '7 days'  THEN 7
+                        WHEN updated_at >= now() - interval '30 days' THEN 30
+                        ELSE NULL
+                    END AS max_age_days,
+                    COUNT(*) AS count
+                FROM artist_recommendations
+                GROUP BY label, sort_order, max_age_days
+                ORDER BY sort_order
+                """
+            )
+            return [
+                {"label": r["label"], "max_age_days": r["max_age_days"], "count": int(r["count"])}
+                for r in cur.fetchall()
+            ]
+
 
 class ReportsRepository:
     def __init__(self, conn: psycopg.Connection) -> None:
@@ -701,3 +810,370 @@ class ReportsRepository:
         status_order = {"TRACKED": 1, "FOLLOWING": 2, "PUBLISHED": 3, "BLACKLISTED": 4}
         entries.sort(key=lambda e: status_order.get(e["status"], 5))
         return {"entries": entries, "period_filtered": period_filtered}
+
+    def get_listening_clock(self, from_date: date | None, to_date: date | None) -> list[dict]:
+        clause, params = self._date_filter(from_date, to_date)
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                f"""
+                SELECT EXTRACT(HOUR FROM played_at AT TIME ZONE 'UTC')::int AS hour,
+                       COUNT(*) AS plays
+                FROM listening_history
+                WHERE played_at IS NOT NULL {clause}
+                GROUP BY hour
+                ORDER BY hour
+                """,
+                params,
+            )
+            rows = {int(r["hour"]): int(r["plays"]) for r in cur.fetchall()}
+        return [{"hour": h, "plays": rows.get(h, 0)} for h in range(24)]
+
+    def get_fingerprint(self, from_date: date | None, to_date: date | None) -> dict:
+        clause, date_params = self._date_filter(from_date, to_date)
+        today = date.today()
+
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS total_plays,
+                    COUNT(DISTINCT LOWER(artist)) AS unique_artists,
+                    COUNT(DISTINCT date_trunc('day', played_at AT TIME ZONE 'UTC')::date) AS listening_days,
+                    MIN(played_at AT TIME ZONE 'UTC')::date AS first_day,
+                    MAX(played_at AT TIME ZONE 'UTC')::date AS last_day
+                FROM listening_history
+                WHERE played_at IS NOT NULL {clause}
+                """,
+                date_params,
+            )
+            row = cur.fetchone()
+            if not row or row["total_plays"] == 0:
+                return {"consistency": 0.0, "variety": 0.0, "discovery": 0.0, "night_owl": 0.0, "depth": 0.0}
+
+            total_plays = int(row["total_plays"])
+            unique_artists = int(row["unique_artists"])
+            listening_days = int(row["listening_days"])
+            first_day: date | None = row["first_day"]
+            last_day: date | None = row["last_day"]
+
+            if from_date and to_date:
+                period_days = (to_date - from_date).days + 1
+            elif first_day and last_day:
+                period_days = (last_day - first_day).days + 1
+            else:
+                period_days = 1
+
+            consistency = round(min(listening_days / max(period_days, 1), 1.0), 4)
+
+            cur.execute(
+                f"""
+                SELECT COUNT(*) AS plays
+                FROM listening_history
+                WHERE played_at IS NOT NULL {clause}
+                GROUP BY LOWER(artist)
+                ORDER BY plays DESC
+                LIMIT 1
+                """,
+                date_params,
+            )
+            top_row = cur.fetchone()
+            top_plays = int(top_row["plays"]) if top_row else 0
+            variety = round(1.0 - (top_plays / total_plays), 4)
+
+            cur.execute(
+                f"""
+                SELECT COUNT(*) AS night_plays
+                FROM listening_history
+                WHERE played_at IS NOT NULL
+                  AND (EXTRACT(HOUR FROM played_at AT TIME ZONE 'UTC') >= 20
+                       OR EXTRACT(HOUR FROM played_at AT TIME ZONE 'UTC') < 4)
+                  {clause}
+                """,
+                date_params,
+            )
+            night_row = cur.fetchone()
+            night_plays = int(night_row["night_plays"]) if night_row else 0
+            night_owl = round(night_plays / total_plays, 4)
+
+            cur.execute(
+                f"""
+                SELECT COUNT(*) AS deep_artists
+                FROM (
+                    SELECT LOWER(artist)
+                    FROM listening_history
+                    WHERE played_at IS NOT NULL {clause}
+                    GROUP BY LOWER(artist)
+                    HAVING COUNT(*) >= 2
+                ) t
+                """,
+                date_params,
+            )
+            depth_row = cur.fetchone()
+            deep_artists = int(depth_row["deep_artists"]) if depth_row else 0
+            depth = round(deep_artists / max(unique_artists, 1), 4)
+
+            if from_date and to_date:
+                cur.execute(
+                    """
+                    SELECT COUNT(DISTINCT LOWER(lh.artist)) AS new_artists
+                    FROM listening_history lh
+                    JOIN artists a ON LOWER(a.name) = LOWER(lh.artist)
+                    WHERE lh.played_at IS NOT NULL
+                      AND lh.played_at >= %s AND lh.played_at < %s
+                      AND a.first_seen_at >= %s AND a.first_seen_at < %s
+                    """,
+                    [from_date, to_date + timedelta(days=1), from_date, to_date + timedelta(days=1)],
+                )
+            else:
+                cutoff = today - timedelta(days=90)
+                cur.execute(
+                    """
+                    SELECT COUNT(DISTINCT LOWER(lh.artist)) AS new_artists
+                    FROM listening_history lh
+                    JOIN artists a ON LOWER(a.name) = LOWER(lh.artist)
+                    WHERE lh.played_at IS NOT NULL
+                      AND a.first_seen_at >= %s
+                    """,
+                    [cutoff],
+                )
+            disc_row = cur.fetchone()
+            new_artists = int(disc_row["new_artists"]) if disc_row else 0
+            discovery = round(new_artists / max(unique_artists, 1), 4)
+
+        return {
+            "consistency": consistency,
+            "variety": variety,
+            "discovery": discovery,
+            "night_owl": night_owl,
+            "depth": depth,
+        }
+
+    def get_genre_stream(self, from_date: date | None, to_date: date | None, top_n: int = 8) -> dict:
+        clause, date_params = self._date_filter(from_date, to_date)
+
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                f"""
+                SELECT g AS genre, COUNT(*) AS total_plays
+                FROM listening_history, LATERAL unnest(genres) AS g
+                WHERE g IS NOT NULL {clause}
+                GROUP BY genre
+                ORDER BY total_plays DESC
+                LIMIT %s
+                """,
+                [*date_params, top_n],
+            )
+            top_genres = [r["genre"] for r in cur.fetchall()]
+
+            if not top_genres:
+                return {"top_genres": [], "points": []}
+
+            cur.execute(
+                f"""
+                SELECT
+                    to_char(date_trunc('week', played_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS week_start,
+                    g AS genre,
+                    COUNT(*) AS plays
+                FROM listening_history, LATERAL unnest(genres) AS g
+                WHERE g IS NOT NULL AND g = ANY(%s::text[]) {clause}
+                GROUP BY week_start, genre
+                ORDER BY week_start
+                """,
+                [top_genres, *date_params],
+            )
+            rows = cur.fetchall()
+
+        week_map: dict[str, dict[str, int]] = {}
+        for r in rows:
+            ws = r["week_start"]
+            if ws not in week_map:
+                week_map[ws] = {}
+            week_map[ws][r["genre"]] = int(r["plays"])
+
+        points = [{"week_start": ws, "plays": week_map[ws]} for ws in sorted(week_map.keys())]
+        return {"top_genres": top_genres, "points": points}
+
+    def get_weekly_discovery_rate(self, from_date: date | None, to_date: date | None) -> list[dict]:
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            if from_date and to_date:
+                cur.execute(
+                    """
+                    SELECT to_char(date_trunc('week', first_seen_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS week_start,
+                           COUNT(*) AS count
+                    FROM artists
+                    WHERE first_seen_at IS NOT NULL
+                      AND first_seen_at >= %s AND first_seen_at < %s
+                    GROUP BY week_start
+                    ORDER BY week_start
+                    """,
+                    [from_date, to_date + timedelta(days=1)],
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT to_char(date_trunc('week', first_seen_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS week_start,
+                           COUNT(*) AS count
+                    FROM artists
+                    WHERE first_seen_at IS NOT NULL
+                    GROUP BY week_start
+                    ORDER BY week_start
+                    """
+                )
+            return [{"week_start": r["week_start"], "count": int(r["count"])} for r in cur.fetchall()]
+
+    def get_discovery_highlight(self, from_date: date | None, to_date: date | None) -> dict | None:
+        if not from_date or not to_date:
+            return None
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT lh.artist AS name, COUNT(*) AS plays,
+                       a.first_seen_at, a.genres,
+                       a.external_ids->>'spotify' AS spotify_uri
+                FROM listening_history lh
+                JOIN artists a ON LOWER(a.name) = LOWER(lh.artist)
+                WHERE lh.played_at >= %s AND lh.played_at < %s
+                  AND a.first_seen_at >= %s AND a.first_seen_at < %s
+                GROUP BY lh.artist, a.first_seen_at, a.genres, a.external_ids->>'spotify'
+                ORDER BY plays DESC
+                LIMIT 1
+                """,
+                [from_date, to_date + timedelta(days=1), from_date, to_date + timedelta(days=1)],
+            )
+            row = cur.fetchone()
+        if not row:
+            return None
+        spotify_uri = row["spotify_uri"]
+        spotify_id = spotify_uri.replace("spotify:artist:", "") if spotify_uri else None
+        return {
+            "name": row["name"],
+            "plays": int(row["plays"]),
+            "first_seen_at": row["first_seen_at"],
+            "genres": list(row["genres"] or []),
+            "spotify_id": spotify_id,
+        }
+
+    def get_genre_drift(self, from_date: date | None, to_date: date | None) -> dict:
+        if not from_date or not to_date:
+            return {"current": [], "previous": [], "period_days": None}
+        period_days = (to_date - from_date).days + 1
+        prev_to = from_date - timedelta(days=1)
+        prev_from = prev_to - timedelta(days=period_days - 1)
+
+        def _top5(fd: date, td: date) -> list[dict]:
+            clause, params = self._date_filter(fd, td)
+            with self._conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    f"""
+                    SELECT g AS genre, COUNT(*) AS plays
+                    FROM listening_history, LATERAL unnest(genres) AS g
+                    WHERE g IS NOT NULL {clause}
+                    GROUP BY genre
+                    ORDER BY plays DESC
+                    LIMIT 5
+                    """,
+                    params,
+                )
+                rows = cur.fetchall()
+            if not rows:
+                return []
+            max_p = rows[0]["plays"]
+            return [
+                {"genre": r["genre"], "plays": int(r["plays"]), "weight": round(r["plays"] / max_p, 4)}
+                for r in rows
+            ]
+
+        return {
+            "current": _top5(from_date, to_date),
+            "previous": _top5(prev_from, prev_to),
+            "period_days": period_days,
+        }
+
+    def get_calendar(self, from_date: date | None, to_date: date | None) -> dict:
+        today = date.today()
+        cal_from = from_date if from_date else today - timedelta(days=364)
+        cal_to = to_date if to_date else today
+
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT date_trunc('day', played_at AT TIME ZONE 'UTC')::date AS play_date,
+                       COUNT(*) AS plays
+                FROM listening_history
+                WHERE played_at IS NOT NULL
+                  AND played_at >= %s AND played_at < %s
+                GROUP BY play_date
+                ORDER BY play_date
+                """,
+                [cal_from, cal_to + timedelta(days=1)],
+            )
+            rows = {str(r["play_date"]): int(r["plays"]) for r in cur.fetchall()}
+
+        result = []
+        current = cal_from
+        while current <= cal_to:
+            key = str(current)
+            result.append({"date": key, "plays": rows.get(key, 0)})
+            current += timedelta(days=1)
+
+        return {"days": result, "from_date": str(cal_from), "to_date": str(cal_to)}
+
+    def get_loyal_artists(self, from_date: date | None, to_date: date | None) -> list[dict]:
+        cutoff = date.today() - timedelta(days=183)
+        clause, date_params = self._date_filter(from_date, to_date)
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                f"""
+                SELECT lh.artist AS name, COUNT(*) AS plays
+                FROM listening_history lh
+                JOIN artists a ON LOWER(a.name) = LOWER(lh.artist)
+                WHERE lh.played_at IS NOT NULL
+                  AND a.first_seen_at IS NOT NULL
+                  AND a.first_seen_at < %s
+                  {clause}
+                GROUP BY lh.artist
+                ORDER BY plays DESC
+                LIMIT 20
+                """,
+                [cutoff, *date_params],
+            )
+            rows = cur.fetchall()
+        if not rows:
+            return []
+        max_plays = rows[0]["plays"]
+        return [
+            {"rank": i + 1, "name": row["name"], "plays": int(row["plays"]), "weight": round(row["plays"] / max_plays, 4)}
+            for i, row in enumerate(rows)
+        ]
+
+    def get_source_effectiveness(self, from_date: date | None, to_date: date | None) -> list[dict]:
+        if from_date and to_date:
+            where_extra = "AND first_seen_at >= %s AND first_seen_at < %s"
+            params: list = [from_date, to_date + timedelta(days=1)]
+        else:
+            where_extra = ""
+            params = []
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                f"""
+                SELECT COALESCE(source, 'UNKNOWN') AS source,
+                       COUNT(*) AS total,
+                       COUNT(*) FILTER (WHERE status = 'PUBLISHED') AS published
+                FROM artists
+                WHERE status IN ('FOLLOWING', 'PUBLISHED', 'BLACKLISTED')
+                  {where_extra}
+                GROUP BY source
+                ORDER BY total DESC
+                """,
+                params,
+            )
+            rows = cur.fetchall()
+        return [
+            {
+                "source": r["source"],
+                "total": int(r["total"]),
+                "published": int(r["published"]),
+                "publish_rate": round(int(r["published"]) / max(int(r["total"]), 1), 4),
+            }
+            for r in rows
+        ]
