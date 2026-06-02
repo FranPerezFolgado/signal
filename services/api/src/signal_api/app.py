@@ -65,6 +65,7 @@ def create_app() -> FastAPI:
     from signal_api.routers.artists import router as artists_router
     from signal_api.routers.health import router as health_router
     from signal_api.routers.recommendations import router as recommendations_router
+    from signal_api.routers.reports import router as reports_router
     from signal_api.routers.stats import router as stats_router
 
     app = FastAPI(
@@ -87,6 +88,7 @@ def create_app() -> FastAPI:
     app.include_router(recommendations_router, prefix="/v1", tags=["recommendations"])
     app.include_router(artists_router, prefix="/v1", tags=["artists"])
     app.include_router(stats_router, prefix="/v1", tags=["stats"])
+    app.include_router(reports_router, prefix="/v1", tags=["reports"])
     app.include_router(health_router, tags=["health"])
 
     return app

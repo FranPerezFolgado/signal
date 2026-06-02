@@ -178,3 +178,88 @@ class StatusBucket(BaseModel):
 
 class PipelineFunnelResponse(BaseModel):
     statuses: list[StatusBucket]
+
+
+# --- Pipeline stats models ---
+
+class PipelineServiceStat(BaseModel):
+    service: str
+    group: str
+    topic: str
+    status: str          # ACTIVE | PROCESSING | STALLED | IDLE
+    lag: int
+    processed: int
+    consumers: int
+
+
+class PipelineStatsResponse(BaseModel):
+    services: list[PipelineServiceStat]
+
+
+# --- Reports models ---
+
+class HeadlineResponse(BaseModel):
+    total_plays: int
+    unique_artists: int
+
+
+class TopArtistEntry(BaseModel):
+    rank: int
+    name: str
+    plays: int
+    weight: float
+
+
+class TopArtistsResponse(BaseModel):
+    artists: list[TopArtistEntry]
+
+
+class DailyPlayPoint(BaseModel):
+    date: str
+    plays: int
+
+
+class PlaysTrendResponse(BaseModel):
+    days: list[DailyPlayPoint]
+
+
+class GenreEntry(BaseModel):
+    genre: str
+    plays: int
+    weight: float
+
+
+class GenreLandscapeResponse(BaseModel):
+    genres: list[GenreEntry]
+
+
+class DiscoveryMonthPoint(BaseModel):
+    month: str
+    count: int
+
+
+class DiscoveryTimelineResponse(BaseModel):
+    months: list[DiscoveryMonthPoint]
+
+
+class ListeningRatioResponse(BaseModel):
+    familiar_plays: int
+    new_plays: int
+    unknown_plays: int
+    familiar_pct: float
+    new_pct: float
+
+
+class StreakResponse(BaseModel):
+    current: int
+    longest: int
+
+
+class FunnelEntry(BaseModel):
+    status: str
+    count: int
+
+
+class ReportsFunnelResponse(BaseModel):
+    entries: list[FunnelEntry]
+    period_filtered: bool
