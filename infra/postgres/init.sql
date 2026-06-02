@@ -3,18 +3,19 @@
 
 CREATE TABLE IF NOT EXISTS listening_history (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  signal_id          TEXT NOT NULL UNIQUE,
+  signal_id          TEXT NOT NULL,
   artist             TEXT NOT NULL,
   artist_id          TEXT,
   track_id           TEXT,
   title              TEXT NOT NULL,
   genres             TEXT[],
-  played_at          TIMESTAMPTZ,
+  played_at          TIMESTAMPTZ NOT NULL,
   sources            TEXT[],
   artist_popularity  INT,
   track_popularity   INT,
   pending_enrichment BOOLEAN DEFAULT false,
-  created_at         TIMESTAMPTZ DEFAULT now()
+  created_at         TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (signal_id, played_at)
 );
 
 CREATE INDEX IF NOT EXISTS idx_listening_history_artist ON listening_history(artist);
