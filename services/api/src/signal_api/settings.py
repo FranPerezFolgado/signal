@@ -6,8 +6,7 @@ class Settings(CommonSettings):
     api_port: int = 8000
     pool_min_size: int = 1
     pool_max_size: int = 10
-    # API has no Kafka dependency; override to avoid requiring the env var
-    kafka_bootstrap_servers: str = ""
+    kafka_bootstrap_servers: str = "localhost:9092"
     stats_stale_threshold_minutes: int = 30
 
 

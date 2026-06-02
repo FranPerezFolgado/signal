@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from signal_api.deps import get_db
+from signal_api.kafka_admin import get_pipeline_stats
 from signal_api.models import (
     ArtistSourcesResponse,
     ArtistStatusCounts,
@@ -12,6 +13,8 @@ from signal_api.models import (
     NoveltyPoint,
     NoveltyRatioResponse,
     PipelineFunnelResponse,
+    PipelineServiceStat,
+    PipelineStatsResponse,
     PlayVelocityPoint,
     PlayVelocityResponse,
     ScoreBreakdownAverages,
@@ -121,3 +124,12 @@ def get_stats_funnel(
 ) -> PipelineFunnelResponse:
     rows = StatsRepository(conn).get_pipeline_funnel()
     return PipelineFunnelResponse(statuses=[StatusBucket(**r) for r in rows])
+
+
+@router.get("/stats/pipeline", response_model=PipelineStatsResponse)
+def get_stats_pipeline() -> PipelineStatsResponse:
+    settings = get_settings()
+    if not settings.kafka_bootstrap_servers:
+        return PipelineStatsResponse(services=[])
+    rows = get_pipeline_stats(settings.kafka_bootstrap_servers)
+    return PipelineStatsResponse(services=[PipelineServiceStat(**r) for r in rows])
