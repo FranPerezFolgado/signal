@@ -6,7 +6,12 @@ import type { ArtistListItem, ArtistStatus, PaginatedResponse, RecommendationIte
 export const queryKeys = {
   recommendations: (page: number) => ["recommendations", page] as const,
   tracked: (page: number) => ["tracked", page] as const,
-  following: (page: number) => ["following", page] as const,
+  following: (
+    page: number,
+    genre: string | null = null,
+    sortBy: "first_seen_at" | "scrobble_count" | "first_play_at" = "first_seen_at",
+    order: "asc" | "desc" = "desc",
+  ) => ["following", page, genre, sortBy, order] as const,
 };
 
 type PageData = PaginatedResponse<RecommendationItem | ArtistListItem>;

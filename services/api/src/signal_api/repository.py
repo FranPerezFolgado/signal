@@ -17,9 +17,22 @@ class ArtistRepository:
         high_priority: bool | None,
         page: int,
         page_size: int,
+        genre: str | None = None,
+        sort_by: str | None = None,
+        order: str = "desc",
     ) -> tuple[list[dict], int]:
-        where, params = self._build_artist_filters(status, high_priority)
+        where, params = self._build_artist_filters(status, high_priority, genre)
         offset = (page - 1) * page_size
+
+        # sort_by and order are validated by the router (Literal types); interpolation is safe.
+        _SORT_COLS = {
+            "first_seen_at": "a.first_seen_at",
+            "scrobble_count": "a.scrobble_count",
+            "first_play_at": "first_play_at",
+        }
+        _col = _SORT_COLS.get(sort_by or "", "a.scrobble_count")
+        _dir = "ASC" if order == "asc" else "DESC"
+        _nulls = "NULLS LAST" if sort_by == "first_play_at" else ""
 
         with self._conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
@@ -28,11 +41,14 @@ class ArtistRepository:
                     a.id, a.name, a.status, a.high_priority,
                     a.scrobble_count, a.genres, a.source, a.origin_artist_id,
                     o.name AS origin_artist_name,
-                    a.external_ids->>'spotify' AS spotify_uri
+                    a.external_ids->>'spotify' AS spotify_uri,
+                    (SELECT MIN(lh.played_at)
+                     FROM listening_history lh
+                     WHERE lower(lh.artist) = lower(a.name)) AS first_play_at
                 FROM artists a
                 LEFT JOIN artists o ON o.id = a.origin_artist_id
                 {where}
-                ORDER BY a.scrobble_count DESC
+                ORDER BY {_col} {_dir} {_nulls}
                 LIMIT %s OFFSET %s
                 """,
                 [*params, page_size, offset],
@@ -158,6 +174,7 @@ class ArtistRepository:
     def _build_artist_filters(
         status: str | None,
         high_priority: bool | None,
+        genre: str | None = None,
     ) -> tuple[str, list]:
         conditions: list[str] = []
         params: list = []
@@ -168,6 +185,9 @@ class ArtistRepository:
         if high_priority is not None:
             conditions.append("a.high_priority = %s")
             params.append(high_priority)
+        if genre is not None:
+            conditions.append("%s = ANY(a.genres)")
+            params.append(genre)
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         return where, params

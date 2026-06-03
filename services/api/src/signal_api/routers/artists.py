@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 import psycopg
@@ -75,6 +75,9 @@ def _to_artist_detail(row: dict) -> ArtistDetail:
 def list_artists(
     status: ArtistStatus | None = None,
     high_priority: bool | None = None,
+    genre: str | None = None,
+    sort_by: Literal["first_seen_at", "scrobble_count", "first_play_at"] | None = None,
+    order: Literal["asc", "desc"] = "desc",
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     conn: psycopg.Connection = Depends(get_db),
@@ -83,6 +86,9 @@ def list_artists(
     rows, total = repo.list_artists(
         status=status.value if status else None,
         high_priority=high_priority,
+        genre=genre,
+        sort_by=sort_by,
+        order=order,
         page=page,
         page_size=page_size,
     )

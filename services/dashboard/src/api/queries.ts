@@ -52,10 +52,21 @@ export function fetchTrackedArtists(page = 1) {
   );
 }
 
-export function fetchFollowingArtists(page = 1) {
-  return apiFetch<PaginatedResponse<ArtistListItem>>(
-    `/v1/artists?status=FOLLOWING&page=${page}&page_size=${PAGE_SIZE}`,
-  );
+export function fetchFollowingArtists(
+  page = 1,
+  genre: string | null = null,
+  sortBy: "first_seen_at" | "scrobble_count" | "first_play_at" = "first_seen_at",
+  order: "asc" | "desc" = "desc",
+) {
+  const p = new URLSearchParams({
+    status: "FOLLOWING",
+    page: String(page),
+    page_size: String(PAGE_SIZE),
+    sort_by: sortBy,
+    order,
+  });
+  if (genre) p.set("genre", genre);
+  return apiFetch<PaginatedResponse<ArtistListItem>>(`/v1/artists?${p.toString()}`);
 }
 
 export function patchArtistStatus(id: string, status: ArtistStatus) {
