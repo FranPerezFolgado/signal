@@ -104,9 +104,7 @@ function QueuePage() {
             <ArtistCard
               key={a.id}
               artist={a}
-              onSpotifyUpdate={(spotifyId) =>
-                spotifyMutation.mutateAsync({ id: a.id, spotifyId })
-              }
+              onSpotifyUpdate={(spotifyId) => spotifyMutation.mutateAsync({ id: a.id, spotifyId })}
               actions={[
                 {
                   label: "FOLLOW",

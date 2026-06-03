@@ -50,20 +50,53 @@ const GENRES = [
 const SOURCES: Source[] = ["spotify", "lastfm", "bandcamp", "rss"];
 
 const ARTIST_NAMES = [
-  "Akira Kosemura", "Loraine James", "Hiroshi Yoshimura", "Nala Sinephro",
-  "Galya Bisengalieva", "Cucina Povera", "Pavel Milyakov", "Astrid Sonne",
-  "Caterina Barbieri", "Beatrice Dillon", "Kali Malone", "Klein",
-  "Toma Kami", "Upsammy", "Lyra Pramuk", "Iceboy Violet",
-  "Ehua", "Object Blue", "Florentino", "Aya",
-  "Bambii", "Crystallmess", "DJ Manny", "Coby Sey",
-  "Sofia Kourtesis", "Tirzah", "Felisha Ledesma", "Yu Su",
+  "Akira Kosemura",
+  "Loraine James",
+  "Hiroshi Yoshimura",
+  "Nala Sinephro",
+  "Galya Bisengalieva",
+  "Cucina Povera",
+  "Pavel Milyakov",
+  "Astrid Sonne",
+  "Caterina Barbieri",
+  "Beatrice Dillon",
+  "Kali Malone",
+  "Klein",
+  "Toma Kami",
+  "Upsammy",
+  "Lyra Pramuk",
+  "Iceboy Violet",
+  "Ehua",
+  "Object Blue",
+  "Florentino",
+  "Aya",
+  "Bambii",
+  "Crystallmess",
+  "DJ Manny",
+  "Coby Sey",
+  "Sofia Kourtesis",
+  "Tirzah",
+  "Felisha Ledesma",
+  "Yu Su",
 ];
 
 const TRACK_TITLES = [
-  "Liminal Drift", "Phase Cascade", "Soft Granite", "Null Field",
-  "Velvet Aperture", "Iridium Hum", "Magnetic North", "Static Bloom",
-  "Cobalt Pulse", "Halocline", "Ferrite Loop", "Quiet Reactor",
-  "Slip Stream", "Inner Drone", "Hex Lattice", "Carrier Wave",
+  "Liminal Drift",
+  "Phase Cascade",
+  "Soft Granite",
+  "Null Field",
+  "Velvet Aperture",
+  "Iridium Hum",
+  "Magnetic North",
+  "Static Bloom",
+  "Cobalt Pulse",
+  "Halocline",
+  "Ferrite Loop",
+  "Quiet Reactor",
+  "Slip Stream",
+  "Inner Drone",
+  "Hex Lattice",
+  "Carrier Wave",
 ];
 
 const rand = (seed: number) => {
@@ -91,15 +124,12 @@ function buildArtists(count: number, offset = 0, seedBase = 1): Artist[] {
     );
     const genres = Array.from({ length: 1 + Math.floor(r() * 3) }, () => pick(GENRES, r));
     const sources = Array.from({ length: 1 + Math.floor(r() * 2) }, () => pick(SOURCES, r));
-    const evidence: EvidenceTrack[] = Array.from(
-      { length: 2 + Math.floor(r() * 3) },
-      (_, j) => ({
-        id: `${name}-t${j}`,
-        title: pick(TRACK_TITLES, r),
-        source: pick(SOURCES, r),
-        playedAt: `${Math.floor(r() * 23)}:${String(Math.floor(r() * 60)).padStart(2, "0")}`,
-      }),
-    );
+    const evidence: EvidenceTrack[] = Array.from({ length: 2 + Math.floor(r() * 3) }, (_, j) => ({
+      id: `${name}-t${j}`,
+      title: pick(TRACK_TITLES, r),
+      source: pick(SOURCES, r),
+      playedAt: `${Math.floor(r() * 23)}:${String(Math.floor(r() * 60)).padStart(2, "0")}`,
+    }));
     return {
       id: `${name}-${offset + i}`,
       name,

@@ -46,9 +46,14 @@ export function ArtistCard({
 
   async function confirmEdit() {
     const trimmed = spotifyInput.trim();
-    if (!trimmed || !onSpotifyUpdate) { setEditingSpotify(false); return; }
+    if (!trimmed || !onSpotifyUpdate) {
+      setEditingSpotify(false);
+      return;
+    }
     setSpotifySaving(true);
-    try { await onSpotifyUpdate(trimmed); } finally {
+    try {
+      await onSpotifyUpdate(trimmed);
+    } finally {
       setSpotifySaving(false);
       setEditingSpotify(false);
     }
@@ -62,9 +67,7 @@ export function ArtistCard({
     >
       {/* ID gutter */}
       <div className="hidden w-14 shrink-0 flex-col items-start justify-between gap-2 border-r border-border bg-panel-raised px-3 py-4 md:flex">
-        <span className="mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
-          ID
-        </span>
+        <span className="mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">ID</span>
         <span className="mono text-[10px] text-zinc-400">{artist.id.slice(-4).toUpperCase()}</span>
       </div>
 
@@ -87,15 +90,26 @@ export function ArtistCard({
                     ref={inputRef}
                     value={spotifyInput}
                     onChange={(e) => setSpotifyInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") confirmEdit(); if (e.key === "Escape") setEditingSpotify(false); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") confirmEdit();
+                      if (e.key === "Escape") setEditingSpotify(false);
+                    }}
                     disabled={spotifySaving}
                     placeholder="Spotify artist ID"
                     className="mono h-5 w-44 border border-zinc-500 bg-zinc-900 px-1.5 text-[10px] text-zinc-200 focus:border-[#1DB954] focus:outline-none"
                   />
-                  <button onClick={confirmEdit} disabled={spotifySaving} className="text-[#1DB954] hover:opacity-75 disabled:opacity-40">
+                  <button
+                    onClick={confirmEdit}
+                    disabled={spotifySaving}
+                    className="text-[#1DB954] hover:opacity-75 disabled:opacity-40"
+                  >
                     <Check className="h-3 w-3" />
                   </button>
-                  <button onClick={() => setEditingSpotify(false)} disabled={spotifySaving} className="text-zinc-500 hover:text-zinc-300">
+                  <button
+                    onClick={() => setEditingSpotify(false)}
+                    disabled={spotifySaving}
+                    className="text-zinc-500 hover:text-zinc-300"
+                  >
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -114,7 +128,10 @@ export function ArtistCard({
                   )}
                   {onSpotifyUpdate && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); startEdit(); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEdit();
+                      }}
                       className="text-zinc-600 hover:text-zinc-400 transition-colors"
                       title="Edit Spotify artist ID"
                     >
@@ -137,8 +154,7 @@ export function ArtistCard({
             </div>
             {artist.origin_artist_name && (
               <div className="mono mt-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                VIA →{" "}
-                <span className="text-zinc-300">{artist.origin_artist_name}</span>
+                VIA → <span className="text-zinc-300">{artist.origin_artist_name}</span>
               </div>
             )}
             {meta && (
@@ -167,7 +183,7 @@ export function ArtistCard({
               {artist.evidence_tracks.map((t) => {
                 const spotifyId = t.track_id?.startsWith("spotify:track:")
                   ? t.track_id.slice("spotify:track:".length)
-                  : t.track_id ?? null;
+                  : (t.track_id ?? null);
                 return (
                   <li
                     key={t.text}

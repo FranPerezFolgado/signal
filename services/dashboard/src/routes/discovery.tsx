@@ -42,9 +42,7 @@ function DiscoveryPage() {
   }
 
   const items = data?.items ?? [];
-  const filtered = q
-    ? items.filter((a) => a.name.toLowerCase().includes(q.toLowerCase()))
-    : items;
+  const filtered = q ? items.filter((a) => a.name.toLowerCase().includes(q.toLowerCase())) : items;
 
   return (
     <div className="space-y-4">
@@ -78,9 +76,7 @@ function DiscoveryPage() {
               key={a.id}
               artist={a}
               meta={[{ label: "PLAYS", value: String(a.scrobble_count) }]}
-              onSpotifyUpdate={(spotifyId) =>
-                spotifyMutation.mutateAsync({ id: a.id, spotifyId })
-              }
+              onSpotifyUpdate={(spotifyId) => spotifyMutation.mutateAsync({ id: a.id, spotifyId })}
               actions={[
                 {
                   label: "FOLLOW",
