@@ -1,7 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { patchArtistSpotify, patchArtistStatus } from "@/api/queries";
-import type { ArtistListItem, ArtistStatus, PaginatedResponse, RecommendationItem } from "@/api/types";
+import type {
+  ArtistListItem,
+  ArtistStatus,
+  PaginatedResponse,
+  RecommendationItem,
+} from "@/api/types";
 
 export const queryKeys = {
   recommendations: (page: number) => ["recommendations", page] as const,
@@ -58,9 +63,7 @@ export function useSpotifyMutation(queryKey: readonly unknown[]) {
         if (!old) return old;
         return {
           ...old,
-          items: old.items.map((a) =>
-            a.id === id ? { ...a, spotify_id: spotifyId } : a,
-          ),
+          items: old.items.map((a) => (a.id === id ? { ...a, spotify_id: spotifyId } : a)),
         };
       });
       toast("SPOTIFY.UPDATED");

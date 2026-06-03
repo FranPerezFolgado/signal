@@ -127,7 +127,7 @@ def test_score_breakdown_as_json_string(client, mock_repo):
 
 def test_evidence_tracks_as_json_string(client, mock_repo):
     row = _make_row("A", score=0.7)
-    row["evidence_tracks"] = '["sig1", "sig2"]'
+    row["evidence_tracks"] = '[{"text": "sig1"}, {"text": "sig2", "track_id": "t1"}]'
     mock_repo.list_recommendations.return_value = ([row], 1)
     item = client.get("/v1/recommendations").json()["items"][0]
-    assert item["evidence_tracks"] == ["sig1", "sig2"]
+    assert [t["text"] for t in item["evidence_tracks"]] == ["sig1", "sig2"]

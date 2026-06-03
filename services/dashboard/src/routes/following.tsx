@@ -13,7 +13,13 @@ export const Route = createFileRoute("/following")({
   component: FollowingPage,
 });
 
-type SortOption = "date_desc" | "date_asc" | "plays_desc" | "plays_asc" | "listen_desc" | "listen_asc";
+type SortOption =
+  | "date_desc"
+  | "date_asc"
+  | "plays_desc"
+  | "plays_asc"
+  | "listen_desc"
+  | "listen_asc";
 
 const SORT_OPTIONS: {
   value: SortOption;
@@ -21,12 +27,12 @@ const SORT_OPTIONS: {
   sortBy: "first_seen_at" | "scrobble_count" | "first_play_at";
   order: "asc" | "desc";
 }[] = [
-  { value: "plays_desc",  label: "MOST PLAYS ↓",       sortBy: "scrobble_count", order: "desc" },
-  { value: "plays_asc",   label: "FEWEST PLAYS ↑",     sortBy: "scrobble_count", order: "asc"  },
-  { value: "listen_desc", label: "LAST LISTENED ↓",    sortBy: "first_play_at",  order: "desc" },
-  { value: "listen_asc",  label: "FIRST LISTENED ↑",   sortBy: "first_play_at",  order: "asc"  },
-  { value: "date_desc",   label: "ADDED NEWEST ↓",     sortBy: "first_seen_at",  order: "desc" },
-  { value: "date_asc",    label: "ADDED OLDEST ↑",     sortBy: "first_seen_at",  order: "asc"  },
+  { value: "plays_desc", label: "MOST PLAYS ↓", sortBy: "scrobble_count", order: "desc" },
+  { value: "plays_asc", label: "FEWEST PLAYS ↑", sortBy: "scrobble_count", order: "asc" },
+  { value: "listen_desc", label: "LAST LISTENED ↓", sortBy: "first_play_at", order: "desc" },
+  { value: "listen_asc", label: "FIRST LISTENED ↑", sortBy: "first_play_at", order: "asc" },
+  { value: "date_desc", label: "ADDED NEWEST ↓", sortBy: "first_seen_at", order: "desc" },
+  { value: "date_asc", label: "ADDED OLDEST ↑", sortBy: "first_seen_at", order: "asc" },
 ];
 
 function FollowingPage() {
@@ -79,9 +85,7 @@ function FollowingPage() {
   }
 
   const items = data?.items ?? [];
-  const filtered = q
-    ? items.filter((a) => a.name.toLowerCase().includes(q.toLowerCase()))
-    : items;
+  const filtered = q ? items.filter((a) => a.name.toLowerCase().includes(q.toLowerCase())) : items;
 
   return (
     <div className="space-y-4">
