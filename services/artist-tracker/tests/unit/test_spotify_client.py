@@ -92,4 +92,5 @@ class TestGetTopTracks:
             client.get_top_tracks("spotify:artist:3G3Gdm4")
 
         call_args = mock_get.call_args
-        assert call_args[1].get("params") is None or "market" not in (call_args[1].get("params") or {})
+        params = call_args[1].get("params") or {}
+        assert "market" not in params

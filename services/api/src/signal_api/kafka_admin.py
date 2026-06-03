@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from confluent_kafka.admin import AdminClient, OffsetSpec, _ConsumerGroupTopicPartitions as ConsumerGroupTopicPartitions
+import contextlib
+
 from confluent_kafka import TopicPartition
+from confluent_kafka.admin import AdminClient, OffsetSpec
+from confluent_kafka.admin import _ConsumerGroupTopicPartitions as ConsumerGroupTopicPartitions
 
 # Canonical mapping: consumer group → friendly service name + input topic label
 PIPELINE_SERVICES: dict[str, tuple[str, str]] = {
@@ -62,10 +65,8 @@ def get_pipeline_stats(bootstrap_servers: str) -> list[dict]:
             for tp, fut in admin.list_offsets(
                 {tp: OffsetSpec.latest() for tp in all_tps}
             ).items():
-                try:
+                with contextlib.suppress(Exception):
                     end_offsets[(tp.topic, tp.partition)] = fut.result().offset
-                except Exception:
-                    pass
         except Exception:
             pass
 

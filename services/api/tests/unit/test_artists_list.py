@@ -30,7 +30,8 @@ def test_list_all_artists(client, mock_repo):
     assert resp.status_code == 200
     assert resp.json()["total"] == 2
     mock_repo.list_artists.assert_called_once_with(
-        status=None, high_priority=None, genre=None, sort_by=None, order="desc", page=1, page_size=20
+        status=None, high_priority=None, genre=None,
+        sort_by=None, order="desc", page=1, page_size=20,
     )
 
 
@@ -39,7 +40,8 @@ def test_filter_by_status(client, mock_repo):
     resp = client.get("/v1/artists?status=FOLLOWING")
     assert resp.status_code == 200
     mock_repo.list_artists.assert_called_once_with(
-        status="FOLLOWING", high_priority=None, genre=None, sort_by=None, order="desc", page=1, page_size=20
+        status="FOLLOWING", high_priority=None, genre=None,
+        sort_by=None, order="desc", page=1, page_size=20,
     )
 
 
@@ -48,7 +50,8 @@ def test_filter_by_high_priority(client, mock_repo):
     resp = client.get("/v1/artists?high_priority=true")
     assert resp.status_code == 200
     mock_repo.list_artists.assert_called_once_with(
-        status=None, high_priority=True, genre=None, sort_by=None, order="desc", page=1, page_size=20
+        status=None, high_priority=True, genre=None,
+        sort_by=None, order="desc", page=1, page_size=20,
     )
 
 
@@ -57,7 +60,8 @@ def test_combined_filters(client, mock_repo):
     resp = client.get("/v1/artists?status=FOLLOWING&high_priority=true")
     assert resp.status_code == 200
     mock_repo.list_artists.assert_called_once_with(
-        status="FOLLOWING", high_priority=True, genre=None, sort_by=None, order="desc", page=1, page_size=20
+        status="FOLLOWING", high_priority=True, genre=None,
+        sort_by=None, order="desc", page=1, page_size=20,
     )
 
 
@@ -91,5 +95,6 @@ def test_page_size_max_boundary(client, mock_repo):
     resp = client.get("/v1/artists?page_size=100")
     assert resp.status_code == 200
     mock_repo.list_artists.assert_called_once_with(
-        status=None, high_priority=None, genre=None, sort_by=None, order="desc", page=1, page_size=100
+        status=None, high_priority=None, genre=None,
+        sort_by=None, order="desc", page=1, page_size=100,
     )

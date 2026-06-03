@@ -32,7 +32,9 @@ router = APIRouter()
 _today = date.today
 
 
-def _validate_dates(from_date: date | None, to_date: date | None) -> tuple[date | None, date | None]:
+def _validate_dates(
+    from_date: date | None, to_date: date | None
+) -> tuple[date | None, date | None]:
     today = _today()
     if to_date and to_date > today:
         to_date = today
