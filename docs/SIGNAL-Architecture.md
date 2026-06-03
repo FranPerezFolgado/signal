@@ -338,14 +338,13 @@ GET  /artists?status=FOLLOWING       # en seguimiento activo
 GET  /artists?status=PUBLISHED       # historial publicado
 GET  /artists?status=BLACKLISTED     # descartados permanentemente
 GET  /artists/new                    # añadidos recientemente al universo
-GET  /artists/{id}                   # detalle + tracks de evidencia + score
-POST /artists                        # alta manual → FOLLOWING directo
-POST /artists/{id}/follow            # TRACKED → FOLLOWING
-POST /artists/{id}/blacklist         # → BLACKLISTED
-POST /artists/{id}/publish           # → PUBLISHED
+GET   /artists/{id}                   # detalle + tracks de evidencia + score
+POST  /artists                        # alta manual → FOLLOWING directo
+PATCH /artists/{id}/status            # cambio de estado: { "status": "FOLLOWING|BLACKLISTED|PUBLISHED" }
+PATCH /artists/{id}/spotify           # editar Spotify ID inline: { "spotify_id": "..." }
 ```
 
-#### Curadores
+#### Curadores _(futuro — no implementado)_
 
 ```
 GET  /curators                       # todos los curadores
@@ -356,16 +355,47 @@ POST /curators/{id}/archive          # archivar
 GET  /curators/{id}/artists          # artistas descubiertos por este curador
 ```
 
-#### Géneros y estadísticas
+#### Estadísticas
 
 ```
-GET /genres/new          # géneros detectados como nuevos en el último período
-GET /stats               # métricas del pipeline
-GET /stats/history       # evolución temporal
-GET /stats/genres        # géneros descubiertos por mes
-GET /stats/sources       # fuentes más activas
-GET /stats/artists       # artistas nuevos por período, top por score
-GET /stats/curators      # qué curadores generan más artistas en FOLLOWING/PUBLISHED
+GET /stats/summary          # conteo de artistas por estado
+GET /stats/health           # última actividad de cada servicio del pipeline
+GET /stats/pipeline         # métricas de offsets/lag de Kafka por servicio
+GET /stats/genres           # géneros más frecuentes en el universo de artistas
+GET /stats/active-genres    # géneros de artistas en TRACKED/FOLLOWING (activos)
+GET /stats/scores           # distribución de scores (histograma)
+GET /stats/breakdown        # medias de los factores del score (género, underground, audio)
+GET /stats/discoveries      # artistas nuevos por semana
+GET /stats/novelty          # novel ratio por semana (% tracks nuevos)
+GET /stats/sources          # distribución de artistas por fuente de descubrimiento
+GET /stats/velocity         # velocidad de plays por día/semana
+GET /stats/coverage         # cobertura de exploración (artistas con/sin explorar)
+GET /stats/funnel           # artistas por estado (TRACKED→FOLLOWING→PUBLISHED)
+GET /stats/blacklist-rate   # ratio de descarte (BLACKLISTED / total valorados)
+GET /stats/stale            # recomendaciones sin actualizar hace > N días
+GET /stats/score-freshness  # distribución de antigüedad de los scores
+```
+
+#### Reports _(analítica del historial de escuchas; todos aceptan `?from_date=&to_date=`)_
+
+```
+GET /reports/headline             # métricas resumen del período (plays, artistas, géneros)
+GET /reports/top-artists          # artistas más escuchados en el período
+GET /reports/plays-trend          # plays por día en el período
+GET /reports/genres               # landscape de géneros escuchados
+GET /reports/discovery-timeline   # artistas nuevos descubiertos por mes
+GET /reports/listening-ratio      # ratio known vs novel en el período
+GET /reports/streak               # racha de días consecutivos con plays
+GET /reports/funnel               # artistas por estado en el período
+GET /reports/listening-clock      # distribución de plays por hora del día
+GET /reports/fingerprint          # perfil de audio features del período
+GET /reports/genre-stream         # evolución de géneros semana a semana
+GET /reports/weekly-discovery-rate # artistas nuevos por semana
+GET /reports/discovery-highlight  # artista más destacado del período
+GET /reports/genre-drift          # géneros que han ganado/perdido peso
+GET /reports/calendar             # heatmap de plays por día del año
+GET /reports/loyal-artists        # artistas con presencia consistente en el período
+GET /reports/source-effectiveness # qué fuentes de descubrimiento generan más FOLLOWING/PUBLISHED
 ```
 
 #### Estado de un artista
@@ -395,35 +425,36 @@ ACTIVE ──→ PAUSED ──→ ACTIVE
 ### dashboard · React + Vite
 **Responsabilidad**: interfaz de revisión personal. Consume la API.
 
-**Cuatro secciones**:
+**Cinco secciones**:
 
-**Cola de artistas TRACKED** (uso diario)
+**Cola de descubrimiento** (uso diario — artistas TRACKED)
 - Artistas pendientes de valorar, ordenados por score
 - Primero los `high_priority`, luego el resto
 - Tracks de evidencia visibles: por qué Signal lo recomienda
 - Acciones inline: follow / blacklist
-- Filtros por género, fuente, curador de origen
+- Edición inline del Spotify ID desde la tarjeta del artista
+- Filtros por género, fuente
 
 **Artistas FOLLOWING**
 - Artistas que ya has validado, pendientes de publicar
-- Tracks recientes del artista
 - Acción: publish / blacklist
 
-**Curadores**
-- Lista de curadores activos con métricas (artistas generados, tasa de acierto)
-- Añadir nuevo curador (YouTube, RSS, playlist)
-
 **Exploración**
-- Géneros nuevos detectados en el período
 - Artistas descubiertos por expansión del grafo
+- Géneros nuevos detectados en el período
 
-**Stats**
-- Novel ratio en el tiempo
-- Géneros descubiertos por mes
-- Artistas nuevos por semana
-- Distribución de scores
-- Fuentes más activas
-- Evolución del perfil de audio features
+**Stats** (métricas del pipeline)
+- Salud de servicios (última actividad por servicio)
+- Estado de Kafka (lag por topic)
+- Distribución de scores, fuentes de descubrimiento, novel ratio
+- Backlog analytics: blacklist rate, géneros activos, recomendaciones stale, score freshness
+
+**Reports** (analítica del historial de escuchas)
+- Headline con métricas resumen del período seleccionado
+- Top artistas, tendencia de plays, landscape de géneros
+- Timeline de descubrimiento, listening ratio, racha, funnel
+- Listening clock, fingerprint de audio, genre stream, weekly discovery rate
+- Discovery highlight, genre drift, calendar heatmap, artistas leales, efectividad de fuentes
 
 **Decisiones de stack**:
 - React + Vite (no Next.js — sin SSR ni SEO necesarios para uso personal)
