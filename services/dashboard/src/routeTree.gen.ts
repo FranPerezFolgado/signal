@@ -45,38 +45,38 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/discovery': typeof DiscoveryRoute
   '/following': typeof FollowingRoute
-  '/stats': typeof StatsRoute
   '/reports': typeof ReportsRoute
+  '/stats': typeof StatsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/discovery': typeof DiscoveryRoute
   '/following': typeof FollowingRoute
-  '/stats': typeof StatsRoute
   '/reports': typeof ReportsRoute
+  '/stats': typeof StatsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/discovery': typeof DiscoveryRoute
   '/following': typeof FollowingRoute
-  '/stats': typeof StatsRoute
   '/reports': typeof ReportsRoute
+  '/stats': typeof StatsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/discovery' | '/following' | '/stats' | '/reports'
+  fullPaths: '/' | '/discovery' | '/following' | '/reports' | '/stats'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/discovery' | '/following' | '/stats' | '/reports'
-  id: '__root__' | '/' | '/discovery' | '/following' | '/stats' | '/reports'
+  to: '/' | '/discovery' | '/following' | '/reports' | '/stats'
+  id: '__root__' | '/' | '/discovery' | '/following' | '/reports' | '/stats'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DiscoveryRoute: typeof DiscoveryRoute
   FollowingRoute: typeof FollowingRoute
-  StatsRoute: typeof StatsRoute
   ReportsRoute: typeof ReportsRoute
+  StatsRoute: typeof StatsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -123,8 +123,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DiscoveryRoute: DiscoveryRoute,
   FollowingRoute: FollowingRoute,
-  StatsRoute: StatsRoute,
   ReportsRoute: ReportsRoute,
+  StatsRoute: StatsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

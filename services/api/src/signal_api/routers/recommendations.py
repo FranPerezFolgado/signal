@@ -6,7 +6,7 @@ import psycopg
 from fastapi import APIRouter, Depends, Query
 
 from signal_api.deps import get_db
-from signal_api.models import PaginatedResponse, RecommendationListItem
+from signal_api.models import EvidenceTrack, PaginatedResponse, RecommendationListItem
 from signal_api.repository import ArtistRepository
 from signal_api.utils import build_score_breakdown, calc_pages, parse_jsonb
 
@@ -15,7 +15,11 @@ router = APIRouter()
 
 def _to_recommendation(row: dict) -> RecommendationListItem:
     evidence_raw = parse_jsonb(row.get("evidence_tracks"))
-    evidence: list[str] = evidence_raw if isinstance(evidence_raw, list) else []
+    evidence: list[EvidenceTrack] = [
+        EvidenceTrack(text=e["text"], track_id=e.get("track_id"))
+        for e in (evidence_raw if isinstance(evidence_raw, list) else [])
+        if isinstance(e, dict)
+    ]
     spotify_uri: str | None = row.get("spotify_uri")
     spotify_id = spotify_uri.split(":")[-1] if spotify_uri else None
     return RecommendationListItem(

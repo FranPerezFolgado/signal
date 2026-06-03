@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { patchArtistStatus } from "@/api/queries";
+import { patchArtistSpotify, patchArtistStatus } from "@/api/queries";
 import type { ArtistListItem, ArtistStatus, PaginatedResponse, RecommendationItem } from "@/api/types";
 
 export const queryKeys = {
@@ -36,6 +36,33 @@ export function useStatusMutation(queryKey: readonly unknown[]) {
     onSettled: () => {
       const category = (queryKey as unknown[])[0];
       qc.invalidateQueries({ queryKey: [category] });
+    },
+  });
+}
+
+export function useSpotifyMutation(queryKey: readonly unknown[]) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, spotifyId }: { id: string; spotifyId: string }) =>
+      patchArtistSpotify(id, spotifyId),
+
+    onSuccess: (_data, { id, spotifyId }) => {
+      type SpotifyPatchable = { id: string; spotify_id?: string | null };
+      qc.setQueryData<PaginatedResponse<SpotifyPatchable>>(queryKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.map((a) =>
+            a.id === id ? { ...a, spotify_id: spotifyId } : a,
+          ),
+        };
+      });
+      toast("SPOTIFY.UPDATED");
+    },
+
+    onError: () => {
+      toast.error("SPOTIFY UPDATE FAILED");
     },
   });
 }

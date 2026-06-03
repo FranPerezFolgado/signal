@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { queryKeys, useStatusMutation } from "@/store/signal";
+import { queryKeys, useStatusMutation, useSpotifyMutation } from "@/store/signal";
+import { Pagination } from "@/components/signal/Pagination";
 import { fetchRecommendations } from "@/api/queries";
 
 export const Route = createFileRoute("/")({
@@ -30,6 +31,7 @@ function QueuePage() {
     queryFn: () => fetchRecommendations(page),
   });
   const mutation = useStatusMutation(qKey);
+  const spotifyMutation = useSpotifyMutation(qKey);
 
   if (isLoading) {
     return (
@@ -58,7 +60,7 @@ function QueuePage() {
 
   return (
     <div className="space-y-4">
-      <div className="sticky top-12 z-20 -mx-4 grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-border-strong bg-panel px-4 py-3 md:-mx-6 md:px-6">
+      <div className="-mx-4 grid grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-border-strong bg-panel px-4 py-3 md:-mx-6 md:px-6">
         <div className="relative min-w-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
           <Input
@@ -102,6 +104,9 @@ function QueuePage() {
             <ArtistCard
               key={a.id}
               artist={a}
+              onSpotifyUpdate={(spotifyId) =>
+                spotifyMutation.mutateAsync({ id: a.id, spotifyId })
+              }
               actions={[
                 {
                   label: "FOLLOW",
@@ -135,27 +140,7 @@ function QueuePage() {
         </div>
       )}
 
-      {data && data.pages > 1 && (
-        <div className="mono flex items-center justify-between border-t border-border pt-4 text-[11px] uppercase tracking-[0.15em]">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="border border-border px-3 py-1.5 text-muted-foreground disabled:opacity-30 hover:bg-panel-raised"
-          >
-            ← PREV
-          </button>
-          <span className="text-muted-foreground">
-            PAGE <span className="text-foreground">{page}</span> / {data.pages}
-          </span>
-          <button
-            disabled={page >= data.pages}
-            onClick={() => setPage((p) => p + 1)}
-            className="border border-border px-3 py-1.5 text-muted-foreground disabled:opacity-30 hover:bg-panel-raised"
-          >
-            NEXT →
-          </button>
-        </div>
-      )}
+      {data && <Pagination page={page} pages={data.pages} onChange={setPage} />}
     </div>
   );
 }

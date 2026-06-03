@@ -12,9 +12,12 @@ from signal_api.models import (
     ArtistListItem,
     ArtistRecommendation,
     ArtistStatus,
+    EvidenceTrack,
     PaginatedResponse,
     PatchStatusRequest,
     PatchStatusResponse,
+    SpotifyPatchRequest,
+    SpotifyPatchResponse,
 )
 from signal_api.repository import ArtistRepository
 from signal_api.utils import build_score_breakdown, calc_pages, parse_jsonb
@@ -42,7 +45,11 @@ def _to_artist_detail(row: dict) -> ArtistDetail:
     recommendation = None
     if row.get("score") is not None:
         evidence_raw = parse_jsonb(row.get("evidence_tracks"))
-        evidence: list[str] = evidence_raw if isinstance(evidence_raw, list) else []
+        evidence: list[EvidenceTrack] = [
+            EvidenceTrack(text=e["text"], track_id=e.get("track_id"))
+            for e in (evidence_raw if isinstance(evidence_raw, list) else [])
+            if isinstance(e, dict)
+        ]
         recommendation = ArtistRecommendation(
             score=row["score"],
             breakdown=build_score_breakdown(row.get("score_breakdown")),
@@ -111,3 +118,16 @@ def update_artist_status(
     if row is None:
         raise HTTPException(status_code=404, detail="Artist not found")
     return PatchStatusResponse(id=row["id"], name=row["name"], status=row["status"])
+
+
+@router.patch("/artists/{artist_id}/spotify", response_model=SpotifyPatchResponse)
+def update_artist_spotify(
+    artist_id: UUID,
+    body: SpotifyPatchRequest,
+    conn: psycopg.Connection = Depends(get_db),
+):
+    repo = ArtistRepository(conn)
+    row = repo.update_artist_spotify(artist_id, body.spotify_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Artist not found")
+    return SpotifyPatchResponse(id=row["id"], name=row["name"])
