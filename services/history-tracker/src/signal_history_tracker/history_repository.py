@@ -11,8 +11,7 @@ INSERT INTO listening_history (
     %(signal_id)s, %(artist)s, %(artist_id)s, %(track_id)s, %(title)s, %(genres)s,
     %(played_at)s, %(sources)s, %(artist_popularity)s, %(track_popularity)s, %(pending_enrichment)s
 )
-ON CONFLICT (signal_id) DO UPDATE
-    SET signal_id = EXCLUDED.signal_id
+ON CONFLICT (signal_id, played_at) DO NOTHING
 RETURNING (xmax = 0) AS inserted
 """
 
@@ -35,9 +34,7 @@ class HistoryRepository:
         with conn.cursor() as cur:
             cur.execute(_UPSERT_SQL, params)
             row = cur.fetchone()
-            if row is None:
-                _log.warning("upsert_no_row_returned", signal_id=str(params["signal_id"])[:8])
-                return False
-            inserted = bool(row[0])
+            # DO NOTHING on conflict returns no row — treat as already_seen, not error
+            inserted = row is not None and bool(row[0])
         _log.debug("upsert", signal_id=str(params["signal_id"])[:8], inserted=inserted)
         return inserted

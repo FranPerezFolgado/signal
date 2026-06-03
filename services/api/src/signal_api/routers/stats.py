@@ -1,24 +1,31 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from signal_api.deps import get_db
+from signal_api.kafka_admin import get_pipeline_stats
 from signal_api.models import (
     ArtistSourcesResponse,
     ArtistStatusCounts,
+    BlacklistRateResponse,
     ExplorationCoverageResponse,
     GenreCount,
     GenreStatsResponse,
     NoveltyPoint,
     NoveltyRatioResponse,
     PipelineFunnelResponse,
+    PipelineServiceStat,
+    PipelineStatsResponse,
     PlayVelocityPoint,
     PlayVelocityResponse,
     ScoreBreakdownAverages,
     ScoreDistributionResponse,
+    ScoreFreshnessBucket,
+    ScoreFreshnessResponse,
     ServiceCheckpoint,
     ServiceHealthResponse,
     SourceCount,
+    StaleRecsResponse,
     StatusBucket,
     WeeklyCount,
     WeeklyDiscoveriesResponse,
@@ -121,3 +128,45 @@ def get_stats_funnel(
 ) -> PipelineFunnelResponse:
     rows = StatsRepository(conn).get_pipeline_funnel()
     return PipelineFunnelResponse(statuses=[StatusBucket(**r) for r in rows])
+
+
+@router.get("/stats/blacklist-rate", response_model=BlacklistRateResponse)
+def get_stats_blacklist_rate(
+    conn: psycopg.Connection = Depends(get_db),
+) -> BlacklistRateResponse:
+    result = StatsRepository(conn).get_blacklist_rate()
+    return BlacklistRateResponse(**result)
+
+
+@router.get("/stats/active-genres", response_model=GenreStatsResponse)
+def get_stats_active_genres(
+    conn: psycopg.Connection = Depends(get_db),
+) -> GenreStatsResponse:
+    rows = StatsRepository(conn).get_active_genres()
+    return GenreStatsResponse(genres=[GenreCount(**r) for r in rows])
+
+
+@router.get("/stats/stale", response_model=StaleRecsResponse)
+def get_stats_stale(
+    threshold_days: int = Query(default=14, ge=1, le=3650),
+    conn: psycopg.Connection = Depends(get_db),
+) -> StaleRecsResponse:
+    result = StatsRepository(conn).get_stale_recs(threshold_days)
+    return StaleRecsResponse(**result)
+
+
+@router.get("/stats/score-freshness", response_model=ScoreFreshnessResponse)
+def get_stats_score_freshness(
+    conn: psycopg.Connection = Depends(get_db),
+) -> ScoreFreshnessResponse:
+    rows = StatsRepository(conn).get_score_freshness()
+    return ScoreFreshnessResponse(buckets=[ScoreFreshnessBucket(**r) for r in rows])
+
+
+@router.get("/stats/pipeline", response_model=PipelineStatsResponse)
+def get_stats_pipeline() -> PipelineStatsResponse:
+    settings = get_settings()
+    if not settings.kafka_bootstrap_servers:
+        return PipelineStatsResponse(services=[])
+    rows = get_pipeline_stats(settings.kafka_bootstrap_servers)
+    return PipelineStatsResponse(services=[PipelineServiceStat(**r) for r in rows])

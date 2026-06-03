@@ -18,6 +18,11 @@ export interface ArtistListItem {
   origin_artist_name: string | null;
 }
 
+export interface EvidenceTrack {
+  text: string;
+  track_id: string | null;
+}
+
 export interface RecommendationItem {
   id: string;
   name: string;
@@ -26,7 +31,7 @@ export interface RecommendationItem {
   genres: string[];
   score: number;
   breakdown: ScoreBreakdown | null;
-  evidence_tracks: string[];
+  evidence_tracks: EvidenceTrack[];
   spotify_id: string | null;
   updated_at: string;
 }
@@ -140,4 +145,188 @@ export interface StatusBucket {
 
 export interface PipelineFunnelResponse {
   statuses: StatusBucket[];
+}
+
+export interface PipelineServiceStat {
+  service: string;
+  group: string;
+  topic: string;
+  status: "ACTIVE" | "PROCESSING" | "STALLED" | "IDLE";
+  lag: number;
+  processed: number;
+  consumers: number;
+}
+
+export interface PipelineStatsResponse {
+  services: PipelineServiceStat[];
+}
+
+// --- Reports types ---
+
+export interface HeadlineResponse {
+  total_plays: number;
+  unique_artists: number;
+}
+
+export interface TopArtistEntry {
+  rank: number;
+  name: string;
+  plays: number;
+  weight: number;
+}
+
+export interface TopArtistsResponse {
+  artists: TopArtistEntry[];
+}
+
+export type LoyalArtistEntry = TopArtistEntry;
+
+export interface LoyalArtistsResponse {
+  artists: LoyalArtistEntry[];
+}
+
+export interface DailyPlayPoint {
+  date: string;
+  plays: number;
+}
+
+export interface PlaysTrendResponse {
+  days: DailyPlayPoint[];
+}
+
+export interface GenreEntry {
+  genre: string;
+  plays: number;
+  weight: number;
+}
+
+export interface GenreLandscapeResponse {
+  genres: GenreEntry[];
+}
+
+export interface DiscoveryMonthPoint {
+  month: string;
+  count: number;
+}
+
+export interface DiscoveryTimelineResponse {
+  months: DiscoveryMonthPoint[];
+}
+
+export interface ListeningRatioResponse {
+  familiar_plays: number;
+  new_plays: number;
+  unknown_plays: number;
+  familiar_pct: number;
+  new_pct: number;
+}
+
+export interface StreakResponse {
+  current: number;
+  longest: number;
+}
+
+export interface FunnelEntry {
+  status: string;
+  count: number;
+}
+
+export interface ReportsFunnelResponse {
+  entries: FunnelEntry[];
+  period_filtered: boolean;
+}
+
+export interface HourlyPlayPoint {
+  hour: number;
+  plays: number;
+}
+
+export interface ListeningClockResponse {
+  hours: HourlyPlayPoint[];
+}
+
+export interface FingerprintResponse {
+  consistency: number;
+  variety: number;
+  discovery: number;
+  night_owl: number;
+  depth: number;
+}
+
+export interface GenreStreamPoint {
+  week_start: string;
+  plays: Record<string, number>;
+}
+
+export interface GenreStreamResponse {
+  top_genres: string[];
+  points: GenreStreamPoint[];
+}
+
+// --- Stats backlog types ---
+
+export interface BlacklistRateResponse {
+  blacklisted: number;
+  total_meaningful: number;
+  rate: number;
+}
+
+export interface StaleRecsResponse {
+  count: number;
+  threshold_days: number;
+  oldest_status_changed_at: string | null;
+}
+
+export interface ScoreFreshnessBucket {
+  label: string;
+  max_age_days: number | null;
+  count: number;
+}
+
+export interface ScoreFreshnessResponse {
+  buckets: ScoreFreshnessBucket[];
+}
+
+// --- Reports backlog types ---
+
+export interface WeeklyDiscoveryPoint {
+  week_start: string;
+  count: number;
+}
+
+export interface WeeklyDiscoveryRateResponse {
+  weeks: WeeklyDiscoveryPoint[];
+}
+
+export interface DiscoveryHighlightResponse {
+  available: boolean;
+  name: string | null;
+  plays: number | null;
+  first_seen_at: string | null;
+  genres: string[];
+  spotify_id: string | null;
+}
+
+export interface GenreDriftResponse {
+  current: GenreEntry[];
+  previous: GenreEntry[];
+  period_days: number | null;
+}
+
+export interface CalendarDay {
+  date: string;
+  plays: number;
+}
+
+export interface CalendarResponse {
+  days: CalendarDay[];
+  from_date: string;
+  to_date: string;
+}
+
+export interface SourceEffectivenessEntry {
+  source: string;
+  total: number;
+  published: number;
+  publish_rate: number;
 }

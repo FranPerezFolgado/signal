@@ -17,14 +17,19 @@ import { FaceplatePanel } from "@/components/signal/FaceplatePanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
+  fetchStatsActiveGenres,
+  fetchStatsBlacklistRate,
   fetchStatsBreakdown,
   fetchStatsCoverage,
   fetchStatsDiscoveries,
   fetchStatsFunnel,
   fetchStatsHealth,
   fetchStatsNovelty,
+  fetchStatsPipeline,
   fetchStatsScores,
+  fetchStatsScoreFreshness,
   fetchStatsSources,
+  fetchStatsStaleRecs,
   fetchStatsVelocity,
 } from "@/api/queries";
 
@@ -117,7 +122,7 @@ function ServiceHealthStrip() {
 // ─── Novelty Ratio ────────────────────────────────────────────────────────────
 
 function NoveltyRatioSection() {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
     queryKey: ["stats", "novelty"],
     queryFn: fetchStatsNovelty,
   });
@@ -136,7 +141,7 @@ function NoveltyRatioSection() {
     >
       {isLoading && <SectionSkeleton />}
       {isError && <SectionError label="NOVELTY DATA UNAVAILABLE" refetch={refetch} />}
-      {chartData && (
+      {isSuccess && chartData && (
         <div className="px-2 pb-2" style={{ height: CHART_HEIGHT }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
@@ -163,10 +168,10 @@ function NoveltyRatioSection() {
               <Line
                 type="monotone"
                 dataKey="ratio"
-                stroke="var(--signal-orange)"
+                stroke="var(--color-signal-orange)"
                 strokeWidth={1.5}
                 dot={false}
-                activeDot={{ r: 3, fill: "var(--signal-orange)" }}
+                activeDot={{ r: 3, fill: "var(--color-signal-orange)" }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -179,7 +184,7 @@ function NoveltyRatioSection() {
 // ─── New Artists Per Week ─────────────────────────────────────────────────────
 
 function WeeklyDiscoveriesSection() {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
     queryKey: ["stats", "discoveries"],
     queryFn: fetchStatsDiscoveries,
   });
@@ -198,7 +203,7 @@ function WeeklyDiscoveriesSection() {
     >
       {isLoading && <SectionSkeleton />}
       {isError && <SectionError label="DISCOVERIES UNAVAILABLE" refetch={refetch} />}
-      {chartData && (
+      {isSuccess && chartData && (
         <div className="px-2 pb-2" style={{ height: CHART_HEIGHT }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} barCategoryGap="20%">
@@ -220,7 +225,7 @@ function WeeklyDiscoveriesSection() {
                 cursor={{ fill: "var(--color-border)" }}
                 formatter={(v: number) => [v, "artists"]}
               />
-              <Bar dataKey="count" fill="var(--signal-orange)" radius={[1, 1, 0, 0]} />
+              <Bar dataKey="count" fill="var(--color-signal-orange)" radius={[1, 1, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -232,7 +237,7 @@ function WeeklyDiscoveriesSection() {
 // ─── Most Active Sources ──────────────────────────────────────────────────────
 
 const SOURCE_COLORS = [
-  "var(--signal-orange)",
+  "var(--color-signal-orange)",
   "hsl(0 0% 60%)",
   "hsl(0 0% 45%)",
   "hsl(0 0% 32%)",
@@ -311,7 +316,7 @@ const SCORE_COLORS = [
   "hsl(0 0% 42%)",         // 20–40 gray
   "hsl(38 75% 52%)",       // 40–60 amber
   "hsl(142 45% 44%)",      // 60–80 green
-  "var(--signal-orange)",  // 80–100 orange
+  "var(--color-signal-orange)",  // 80–100 orange
 ];
 
 function ScoreDistributionSection() {
@@ -373,7 +378,7 @@ function ScoreDistributionSection() {
 
 const STATUS_ORDER = ["TRACKED", "FOLLOWING", "PUBLISHED", "BLACKLISTED"];
 const STATUS_COLORS: Record<string, string> = {
-  TRACKED: "var(--signal-orange)",
+  TRACKED: "var(--color-signal-orange)",
   FOLLOWING: "hsl(142 45% 44%)",
   PUBLISHED: "hsl(210 60% 52%)",
   BLACKLISTED: "hsl(0 0% 35%)",
@@ -449,7 +454,7 @@ function ScoreBreakdownSection() {
   const factors =
     data && data.avg_genre_novelty != null && data.avg_popularity_norm != null
       ? [
-          { label: "GENRE NOVELTY", value: data.avg_genre_novelty, color: "var(--signal-orange)" },
+          { label: "GENRE NOVELTY", value: data.avg_genre_novelty, color: "var(--color-signal-orange)" },
           { label: "POPULARITY", value: data.avg_popularity_norm, color: "hsl(142 45% 44%)" },
         ]
       : null;
@@ -500,7 +505,7 @@ function ScoreBreakdownSection() {
 // ─── Play Velocity ────────────────────────────────────────────────────────────
 
 function PlayVelocitySection() {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
     queryKey: ["stats", "velocity"],
     queryFn: fetchStatsVelocity,
   });
@@ -521,7 +526,7 @@ function PlayVelocitySection() {
     >
       {isLoading && <SectionSkeleton />}
       {isError && <SectionError label="VELOCITY DATA UNAVAILABLE" refetch={refetch} />}
-      {chartData && (
+      {isSuccess && chartData && (
         <div>
           <div className="px-2 pb-2" style={{ height: CHART_HEIGHT }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -544,7 +549,7 @@ function PlayVelocitySection() {
                   cursor={{ fill: "var(--color-border)" }}
                   formatter={(v: number) => [v.toLocaleString(), "plays"]}
                 />
-                <Bar dataKey="plays" fill="var(--signal-orange)" radius={[1, 1, 0, 0]} opacity={0.85} />
+                <Bar dataKey="plays" fill="var(--color-signal-orange)" radius={[1, 1, 0, 0]} opacity={0.85} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -604,6 +609,311 @@ function ExplorationCoverageSection() {
   );
 }
 
+// ─── Kafka Pipeline Section ───────────────────────────────────────────────────
+
+const STATUS_COLOR: Record<string, string> = {
+  ACTIVE: "bg-signal-green",
+  PROCESSING: "bg-signal-orange",
+  STALLED: "bg-signal-red",
+  IDLE: "bg-zinc-600",
+};
+
+const STATUS_TEXT_COLOR: Record<string, string> = {
+  ACTIVE: "text-signal-green",
+  PROCESSING: "text-signal-orange",
+  STALLED: "text-signal-red",
+  IDLE: "text-zinc-500",
+};
+
+function formatLag(n: number): string {
+  if (n === 0) return "0";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
+function KafkaPipelineSection() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["stats", "pipeline"],
+    queryFn: fetchStatsPipeline,
+    refetchInterval: 10_000,
+    retry: false,
+  });
+
+  return (
+    <FaceplatePanel
+      slug="04.K"
+      label="KAFKA PIPELINE"
+      info="Consumer group lag and status for each pipeline service. Refreshes every 10 seconds. LAG = messages queued but not yet processed."
+    >
+      {isLoading && <SectionSkeleton height={160} />}
+      {isError && (
+        <div className="mono flex items-center justify-between p-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <span>Kafka unreachable</span>
+          <button onClick={() => refetch()} className="underline hover:text-foreground">
+            RETRY
+          </button>
+        </div>
+      )}
+      {data && data.services.length === 0 && (
+        <div className="mono p-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          NO KAFKA CONNECTION
+        </div>
+      )}
+      {data && data.services.length > 0 && (
+        <div className="divide-y divide-border">
+          {/* Header row */}
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-1.5">
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">SERVICE</span>
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">PROCESSED</span>
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">LAG</span>
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">STATUS</span>
+          </div>
+          {data.services.map((svc) => (
+            <div
+              key={svc.service}
+              className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center px-4 py-2.5"
+            >
+              <div>
+                <div className="mono text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">
+                  {svc.service}
+                </div>
+                <div className="mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground mt-0.5">
+                  {svc.topic}
+                </div>
+              </div>
+              <span className="mono text-[10px] tabular-nums text-muted-foreground text-right w-16">
+                {formatLag(svc.processed)}
+              </span>
+              <span
+                className={`mono text-[10px] tabular-nums font-bold text-right w-16 ${
+                  svc.lag > 0 ? "text-signal-orange" : "text-muted-foreground"
+                }`}
+              >
+                {formatLag(svc.lag)}
+              </span>
+              <div className="flex items-center justify-end gap-1.5 w-16">
+                <div className={`w-1.5 h-1.5 rounded-full ${STATUS_COLOR[svc.status] ?? "bg-zinc-600"}`} />
+                <span className={`mono text-[9px] uppercase tracking-[0.12em] ${STATUS_TEXT_COLOR[svc.status] ?? "text-zinc-500"}`}>
+                  {svc.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </FaceplatePanel>
+  );
+}
+
+// ─── Blacklist Rate ───────────────────────────────────────────────────────────
+
+function BlacklistRateSection() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["stats", "blacklist-rate"],
+    queryFn: fetchStatsBlacklistRate,
+  });
+  return (
+    <FaceplatePanel
+      slug="04.I"
+      label="BLACKLIST RATE"
+      info="Fraction of reviewed artists (FOLLOWING + PUBLISHED + BLACKLISTED) that were blacklisted. High rate means the scorer is surfacing too many bad candidates."
+    >
+      {isLoading && <SectionSkeleton height={120} />}
+      {isError && <SectionError label="BLACKLIST DATA UNAVAILABLE" refetch={refetch} />}
+      {data && (
+        <div className="p-4 space-y-4">
+          <div className="flex items-end gap-3">
+            <span
+              className="mono text-4xl font-bold tabular-nums"
+              style={{ color: data.rate > 0.4 ? "var(--color-signal-red)" : "var(--color-foreground)" }}
+            >
+              {(data.rate * 100).toFixed(1)}
+            </span>
+            <span className="mono text-lg text-muted-foreground mb-1">%</span>
+            <span className="mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2 ml-1">
+              blacklisted
+            </span>
+          </div>
+          <div className="h-2 bg-border rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${Math.min(data.rate * 100, 100)}%`, background: "var(--color-signal-red)" }}
+            />
+          </div>
+          <div className="mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground flex justify-between">
+            <span>{data.blacklisted.toLocaleString()} BLACKLISTED</span>
+            <span>{data.total_meaningful.toLocaleString()} REVIEWED</span>
+          </div>
+        </div>
+      )}
+    </FaceplatePanel>
+  );
+}
+
+// ─── Active Pipeline Genres ───────────────────────────────────────────────────
+
+function ActiveGenresSection() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["stats", "active-genres"],
+    queryFn: fetchStatsActiveGenres,
+  });
+  return (
+    <FaceplatePanel
+      slug="04.J"
+      label="ACTIVE PIPELINE GENRES"
+      info="Genre distribution among artists currently in TRACKED or FOLLOWING state — shows what's actively in the curation queue right now."
+    >
+      {isLoading && <SectionSkeleton height={200} />}
+      {isError && <SectionError label="GENRE DATA UNAVAILABLE" refetch={refetch} />}
+      {data && data.genres.length === 0 && (
+        <div className="mono p-6 text-center text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          NO GENRES IN PIPELINE
+        </div>
+      )}
+      {data && data.genres.length > 0 && (
+        <div className="p-4 divide-y divide-border">
+          {data.genres.slice(0, 10).map((g, i) => {
+            const max = data.genres[0].artist_count;
+            return (
+              <div key={g.genre} className="flex items-center gap-3 py-1.5">
+                <span className="mono w-4 text-right text-[9px] tabular-nums text-muted-foreground">
+                  {i + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="mono truncate text-[10px] uppercase tracking-[0.1em] text-foreground">
+                    {g.genre}
+                  </div>
+                  <div className="mt-0.5 h-1 w-full bg-panel-raised">
+                    <div
+                      className="h-full bg-signal-orange"
+                      style={{ width: `${(g.artist_count / max) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="mono text-[10px] tabular-nums text-muted-foreground">
+                  {g.artist_count}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </FaceplatePanel>
+  );
+}
+
+// ─── Stale Tracked Artists ────────────────────────────────────────────────────
+
+function StaleRecsSection() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["stats", "stale-recs"],
+    queryFn: () => fetchStatsStaleRecs(14),
+  });
+
+  function fmtDate(iso: string | null) {
+    if (!iso) return "—";
+    return new Date(iso).toISOString().slice(0, 10);
+  }
+
+  return (
+    <FaceplatePanel
+      slug="04.L"
+      label="STALE TRACKED ARTISTS"
+      info="Artists in TRACKED state with no status change in the last 14 days. High count means the queue is piling up with undecided recommendations."
+    >
+      {isLoading && <SectionSkeleton height={120} />}
+      {isError && <SectionError label="STALE DATA UNAVAILABLE" refetch={refetch} />}
+      {data && (
+        <div className="p-4 space-y-3">
+          <div className="flex items-end gap-3">
+            <span
+              className="mono text-4xl font-bold tabular-nums"
+              style={{ color: data.count > 0 ? "var(--color-signal-orange)" : "var(--color-foreground)" }}
+            >
+              {data.count.toLocaleString()}
+            </span>
+            <span className="mono text-[11px] text-muted-foreground mb-2">ARTISTS</span>
+          </div>
+          <p className="mono text-[9px] text-muted-foreground tracking-[0.1em]">
+            TRACKED &gt; {data.threshold_days} DAYS WITHOUT STATUS CHANGE
+          </p>
+          {data.oldest_status_changed_at && (
+            <div className="mono text-[10px] text-muted-foreground">
+              OLDEST:{" "}
+              <span className="text-foreground">{fmtDate(data.oldest_status_changed_at)}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </FaceplatePanel>
+  );
+}
+
+// ─── Score Freshness ──────────────────────────────────────────────────────────
+
+const FRESHNESS_COLORS = [
+  "var(--color-signal-orange)",
+  "hsl(38 75% 52%)",
+  "hsl(0 0% 42%)",
+  "hsl(0 60% 38%)",
+];
+
+function ScoreFreshnessSection() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["stats", "score-freshness"],
+    queryFn: fetchStatsScoreFreshness,
+  });
+  const total = data?.buckets.reduce((s, b) => s + b.count, 0) ?? 0;
+  return (
+    <FaceplatePanel
+      slug="04.M"
+      label="SCORE FRESHNESS"
+      info="Distribution of recommendation score age. Scores older than 30 days may no longer reflect current genre trends or artist popularity."
+    >
+      {isLoading && <SectionSkeleton height={140} />}
+      {isError && <SectionError label="FRESHNESS DATA UNAVAILABLE" refetch={refetch} />}
+      {data && data.buckets.length === 0 && (
+        <div className="mono p-6 text-center text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          NO SCORED ARTISTS YET
+        </div>
+      )}
+      {data && data.buckets.length > 0 && (
+        <div className="p-4 space-y-3">
+          <div className="flex h-4 w-full overflow-hidden gap-px">
+            {data.buckets.map((b, i) =>
+              b.count > 0 && total > 0 ? (
+                <div
+                  key={b.label}
+                  style={{ width: `${(b.count / total) * 100}%`, background: FRESHNESS_COLORS[i] }}
+                  title={`${b.label}: ${b.count}`}
+                />
+              ) : null,
+            )}
+          </div>
+          <div className="space-y-2">
+            {data.buckets.map((b, i) => (
+              <div key={b.label} className="flex items-center gap-2">
+                <div
+                  className="w-2.5 h-2.5 flex-shrink-0"
+                  style={{ background: FRESHNESS_COLORS[i] }}
+                />
+                <span className="mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground flex-1">
+                  {b.label}
+                </span>
+                <span className="mono text-[10px] tabular-nums text-foreground">{b.count}</span>
+                <span className="mono text-[9px] tabular-nums text-muted-foreground w-10 text-right">
+                  {total > 0 ? `${Math.round((b.count / total) * 100)}%` : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </FaceplatePanel>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function StatsPage() {
@@ -620,7 +930,12 @@ function StatsPage() {
           <ScoreBreakdownSection />
           <PlayVelocitySection />
           <ExplorationCoverageSection />
+          <BlacklistRateSection />
+          <ActiveGenresSection />
+          <StaleRecsSection />
+          <ScoreFreshnessSection />
         </div>
+        <KafkaPipelineSection />
       </div>
     </TooltipProvider>
   );
