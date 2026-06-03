@@ -75,6 +75,6 @@ print("=" * 40)
 print("Add these to your .env file:")
 print(f"SPOTIFY_CLIENT_ID={client_id}")
 # Client secret is already known to you — only REFRESH_TOKEN is new
-print(f"SPOTIFY_CLIENT_SECRET=<your secret>")
+print("SPOTIFY_CLIENT_SECRET=<your secret>")
 print(f"SPOTIFY_REFRESH_TOKEN={data['refresh_token']}")
 print("=" * 40)

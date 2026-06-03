@@ -14,7 +14,6 @@ import uuid
 import psycopg
 import pytest
 from confluent_kafka import Producer
-
 from helpers import DB_URL, KAFKA, services_healthy
 
 ENRICHED_TOPIC = "tracks.enriched"
