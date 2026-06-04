@@ -55,7 +55,7 @@ def test_upsert_sql_contains_on_conflict(repo, sample_msg):
     conn = _make_conn((True,))
     repo.upsert(conn, sample_msg)
     executed_sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
-    assert "ON CONFLICT (signal_id) DO UPDATE" in executed_sql
+    assert "ON CONFLICT (signal_id, played_at) DO NOTHING" in executed_sql
 
 
 def test_upsert_binds_v2_fields(repo, sample_msg):
