@@ -44,6 +44,8 @@ ignore = [
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
+explicit_package_bases = true
+exclude = ["tests/", "tests\\.py$"]
 
 [tool.pytest.ini_options]
 testpaths = ["services", "shared", "tests"]
