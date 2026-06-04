@@ -1,10 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  Outlet,
-  Link,
-  createRootRouteWithContext,
-  useRouter,
-} from "@tanstack/react-router";
+import { Outlet, Link, createRootRouteWithContext, useRouter } from "@tanstack/react-router";
 import { AppShell } from "@/components/signal/AppShell";
 
 function NotFoundComponent() {
@@ -12,9 +7,7 @@ function NotFoundComponent() {
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
       <div className="faceplate max-w-md p-8 text-center">
         <h1 className="mono text-5xl font-bold text-signal-orange">404</h1>
-        <h2 className="mt-4 text-base font-semibold uppercase tracking-[0.2em]">
-          Signal lost
-        </h2>
+        <h2 className="mt-4 text-base font-semibold uppercase tracking-[0.2em]">Signal lost</h2>
         <p className="mono mt-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           ROUTE NOT FOUND
         </p>

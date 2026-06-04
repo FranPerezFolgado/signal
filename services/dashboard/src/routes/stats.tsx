@@ -147,14 +147,22 @@ function NoveltyRatioSection() {
             <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 9, fontFamily: "monospace", fill: "var(--color-muted-foreground)" }}
+                tick={{
+                  fontSize: 9,
+                  fontFamily: "monospace",
+                  fill: "var(--color-muted-foreground)",
+                }}
                 axisLine={false}
                 tickLine={false}
                 interval={4}
               />
               <YAxis
                 domain={[0, 1]}
-                tick={{ fontSize: 9, fontFamily: "monospace", fill: "var(--color-muted-foreground)" }}
+                tick={{
+                  fontSize: 9,
+                  fontFamily: "monospace",
+                  fill: "var(--color-muted-foreground)",
+                }}
                 axisLine={false}
                 tickLine={false}
                 width={28}
@@ -209,12 +217,20 @@ function WeeklyDiscoveriesSection() {
             <BarChart data={chartData} barCategoryGap="20%">
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 9, fontFamily: "monospace", fill: "var(--color-muted-foreground)" }}
+                tick={{
+                  fontSize: 9,
+                  fontFamily: "monospace",
+                  fill: "var(--color-muted-foreground)",
+                }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 9, fontFamily: "monospace", fill: "var(--color-muted-foreground)" }}
+                tick={{
+                  fontSize: 9,
+                  fontFamily: "monospace",
+                  fill: "var(--color-muted-foreground)",
+                }}
                 axisLine={false}
                 tickLine={false}
                 width={28}
@@ -312,11 +328,11 @@ function ArtistSourcesSection() {
 // ─── Score Distribution ───────────────────────────────────────────────────────
 
 const SCORE_COLORS = [
-  "hsl(0 60% 38%)",        // 0–20  dark red
-  "hsl(0 0% 42%)",         // 20–40 gray
-  "hsl(38 75% 52%)",       // 40–60 amber
-  "hsl(142 45% 44%)",      // 60–80 green
-  "var(--color-signal-orange)",  // 80–100 orange
+  "hsl(0 60% 38%)", // 0–20  dark red
+  "hsl(0 0% 42%)", // 20–40 gray
+  "hsl(38 75% 52%)", // 40–60 amber
+  "hsl(142 45% 44%)", // 60–80 green
+  "var(--color-signal-orange)", // 80–100 orange
 ];
 
 function ScoreDistributionSection() {
@@ -329,7 +345,9 @@ function ScoreDistributionSection() {
     <FaceplatePanel
       slug="04.D"
       label="SCORE DISTRIBUTION"
-      meta={data && data.total_scored > 0 ? <MetaBadge>N={data.total_scored}</MetaBadge> : undefined}
+      meta={
+        data && data.total_scored > 0 ? <MetaBadge>N={data.total_scored}</MetaBadge> : undefined
+      }
       info="Recommendation scores (0–100) distributed across five buckets. Score = weighted combination of genre novelty and popularity normalisation. Higher is a stronger recommendation."
     >
       {isLoading && <SectionSkeleton />}
@@ -345,12 +363,20 @@ function ScoreDistributionSection() {
             <BarChart data={data.buckets} barCategoryGap="20%">
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 9, fontFamily: "monospace", fill: "var(--color-muted-foreground)" }}
+                tick={{
+                  fontSize: 9,
+                  fontFamily: "monospace",
+                  fill: "var(--color-muted-foreground)",
+                }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 9, fontFamily: "monospace", fill: "var(--color-muted-foreground)" }}
+                tick={{
+                  fontSize: 9,
+                  fontFamily: "monospace",
+                  fill: "var(--color-muted-foreground)",
+                }}
                 axisLine={false}
                 tickLine={false}
                 width={28}
@@ -392,7 +418,7 @@ function PipelineFunnelSection() {
 
   const sorted = data
     ? [...data.statuses].sort(
-        (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
+        (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status),
       )
     : [];
 
@@ -454,7 +480,11 @@ function ScoreBreakdownSection() {
   const factors =
     data && data.avg_genre_novelty != null && data.avg_popularity_norm != null
       ? [
-          { label: "GENRE NOVELTY", value: data.avg_genre_novelty, color: "var(--color-signal-orange)" },
+          {
+            label: "GENRE NOVELTY",
+            value: data.avg_genre_novelty,
+            color: "var(--color-signal-orange)",
+          },
           { label: "POPULARITY", value: data.avg_popularity_norm, color: "hsl(142 45% 44%)" },
         ]
       : null;
@@ -481,7 +511,10 @@ function ScoreBreakdownSection() {
                 <span className="mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                   {f.label}
                 </span>
-                <span className="mono text-[13px] tabular-nums font-bold" style={{ color: f.color }}>
+                <span
+                  className="mono text-[13px] tabular-nums font-bold"
+                  style={{ color: f.color }}
+                >
                   {f.value.toFixed(1)}
                 </span>
               </div>
@@ -533,12 +566,20 @@ function PlayVelocitySection() {
               <BarChart data={chartData} barCategoryGap="10%">
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 9, fontFamily: "monospace", fill: "var(--color-muted-foreground)" }}
+                  tick={{
+                    fontSize: 9,
+                    fontFamily: "monospace",
+                    fill: "var(--color-muted-foreground)",
+                  }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 9, fontFamily: "monospace", fill: "var(--color-muted-foreground)" }}
+                  tick={{
+                    fontSize: 9,
+                    fontFamily: "monospace",
+                    fill: "var(--color-muted-foreground)",
+                  }}
                   axisLine={false}
                   tickLine={false}
                   width={36}
@@ -549,7 +590,12 @@ function PlayVelocitySection() {
                   cursor={{ fill: "var(--color-border)" }}
                   formatter={(v: number) => [v.toLocaleString(), "plays"]}
                 />
-                <Bar dataKey="plays" fill="var(--color-signal-orange)" radius={[1, 1, 0, 0]} opacity={0.85} />
+                <Bar
+                  dataKey="plays"
+                  fill="var(--color-signal-orange)"
+                  radius={[1, 1, 0, 0]}
+                  opacity={0.85}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -664,10 +710,18 @@ function KafkaPipelineSection() {
         <div className="divide-y divide-border">
           {/* Header row */}
           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-1.5">
-            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">SERVICE</span>
-            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">PROCESSED</span>
-            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">LAG</span>
-            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">STATUS</span>
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+              SERVICE
+            </span>
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">
+              PROCESSED
+            </span>
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">
+              LAG
+            </span>
+            <span className="mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground text-right w-16">
+              STATUS
+            </span>
           </div>
           {data.services.map((svc) => (
             <div
@@ -693,8 +747,12 @@ function KafkaPipelineSection() {
                 {formatLag(svc.lag)}
               </span>
               <div className="flex items-center justify-end gap-1.5 w-16">
-                <div className={`w-1.5 h-1.5 rounded-full ${STATUS_COLOR[svc.status] ?? "bg-zinc-600"}`} />
-                <span className={`mono text-[9px] uppercase tracking-[0.12em] ${STATUS_TEXT_COLOR[svc.status] ?? "text-zinc-500"}`}>
+                <div
+                  className={`w-1.5 h-1.5 rounded-full ${STATUS_COLOR[svc.status] ?? "bg-zinc-600"}`}
+                />
+                <span
+                  className={`mono text-[9px] uppercase tracking-[0.12em] ${STATUS_TEXT_COLOR[svc.status] ?? "text-zinc-500"}`}
+                >
                   {svc.status}
                 </span>
               </div>
@@ -726,7 +784,9 @@ function BlacklistRateSection() {
           <div className="flex items-end gap-3">
             <span
               className="mono text-4xl font-bold tabular-nums"
-              style={{ color: data.rate > 0.4 ? "var(--color-signal-red)" : "var(--color-foreground)" }}
+              style={{
+                color: data.rate > 0.4 ? "var(--color-signal-red)" : "var(--color-foreground)",
+              }}
             >
               {(data.rate * 100).toFixed(1)}
             </span>
@@ -738,7 +798,10 @@ function BlacklistRateSection() {
           <div className="h-2 bg-border rounded-full overflow-hidden">
             <div
               className="h-full rounded-full"
-              style={{ width: `${Math.min(data.rate * 100, 100)}%`, background: "var(--color-signal-red)" }}
+              style={{
+                width: `${Math.min(data.rate * 100, 100)}%`,
+                background: "var(--color-signal-red)",
+              }}
             />
           </div>
           <div className="mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground flex justify-between">
@@ -829,7 +892,9 @@ function StaleRecsSection() {
           <div className="flex items-end gap-3">
             <span
               className="mono text-4xl font-bold tabular-nums"
-              style={{ color: data.count > 0 ? "var(--color-signal-orange)" : "var(--color-foreground)" }}
+              style={{
+                color: data.count > 0 ? "var(--color-signal-orange)" : "var(--color-foreground)",
+              }}
             >
               {data.count.toLocaleString()}
             </span>

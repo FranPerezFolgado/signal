@@ -43,6 +43,8 @@ requires_stack = pytest.mark.skipif(
     reason="Live stack not available — run 'make up' first",
 )
 
+pytestmark = pytest.mark.integration
+
 
 def _produce(topic: str, payload: dict) -> None:
     p = Producer({"bootstrap.servers": KAFKA})

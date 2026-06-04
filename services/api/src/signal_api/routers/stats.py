@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import psycopg
 from fastapi import APIRouter, Depends, Query
 
 from signal_api.deps import get_db
@@ -32,8 +33,6 @@ from signal_api.models import (
 )
 from signal_api.repository import StatsRepository
 from signal_api.settings import get_settings
-
-import psycopg
 
 router = APIRouter()
 

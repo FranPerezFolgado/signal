@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-
 # ─── _validate_dates ──────────────────────────────────────────────────────────
 
 def _validate_dates(from_date, to_date, today=date(2026, 6, 1)):

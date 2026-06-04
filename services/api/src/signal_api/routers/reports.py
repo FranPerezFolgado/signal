@@ -8,21 +8,29 @@ from fastapi import APIRouter, Depends, HTTPException
 from signal_api.deps import get_db
 from signal_api.models import (
     CalendarResponse,
+    DailyPlayPoint,
     DiscoveryHighlightResponse,
+    DiscoveryMonthPoint,
     DiscoveryTimelineResponse,
     FingerprintResponse,
     GenreDriftResponse,
+    GenreEntry,
     GenreLandscapeResponse,
     GenreStreamResponse,
     HeadlineResponse,
+    HourlyPlayPoint,
     ListeningClockResponse,
     ListeningRatioResponse,
+    LoyalArtistEntry,
     LoyalArtistsResponse,
     PlaysTrendResponse,
     ReportsFunnelResponse,
+    SourceEffectivenessEntry,
     SourceEffectivenessResponse,
     StreakResponse,
+    TopArtistEntry,
     TopArtistsResponse,
+    WeeklyDiscoveryPoint,
     WeeklyDiscoveryRateResponse,
 )
 from signal_api.repository import ReportsRepository
@@ -32,7 +40,9 @@ router = APIRouter()
 _today = date.today
 
 
-def _validate_dates(from_date: date | None, to_date: date | None) -> tuple[date | None, date | None]:
+def _validate_dates(
+    from_date: date | None, to_date: date | None
+) -> tuple[date | None, date | None]:
     today = _today()
     if to_date and to_date > today:
         to_date = today
@@ -60,7 +70,7 @@ def get_reports_top_artists(
 ) -> TopArtistsResponse:
     from_date, to_date = _validate_dates(from_date, to_date)
     rows = ReportsRepository(conn).get_top_artists(from_date, to_date)
-    return TopArtistsResponse(artists=rows)
+    return TopArtistsResponse(artists=[TopArtistEntry(**r) for r in rows])
 
 
 @router.get("/reports/plays-trend", response_model=PlaysTrendResponse)
@@ -71,7 +81,7 @@ def get_reports_plays_trend(
 ) -> PlaysTrendResponse:
     from_date, to_date = _validate_dates(from_date, to_date)
     days = ReportsRepository(conn).get_plays_trend(from_date, to_date)
-    return PlaysTrendResponse(days=days)
+    return PlaysTrendResponse(days=[DailyPlayPoint(**r) for r in days])
 
 
 @router.get("/reports/genres", response_model=GenreLandscapeResponse)
@@ -82,7 +92,7 @@ def get_reports_genres(
 ) -> GenreLandscapeResponse:
     from_date, to_date = _validate_dates(from_date, to_date)
     rows = ReportsRepository(conn).get_genres(from_date, to_date)
-    return GenreLandscapeResponse(genres=rows)
+    return GenreLandscapeResponse(genres=[GenreEntry(**r) for r in rows])
 
 
 @router.get("/reports/discovery-timeline", response_model=DiscoveryTimelineResponse)
@@ -93,7 +103,7 @@ def get_reports_discovery_timeline(
 ) -> DiscoveryTimelineResponse:
     from_date, to_date = _validate_dates(from_date, to_date)
     months = ReportsRepository(conn).get_discovery_timeline(from_date, to_date)
-    return DiscoveryTimelineResponse(months=months)
+    return DiscoveryTimelineResponse(months=[DiscoveryMonthPoint(**r) for r in months])
 
 
 @router.get("/reports/listening-ratio", response_model=ListeningRatioResponse)
@@ -137,7 +147,7 @@ def get_reports_listening_clock(
 ) -> ListeningClockResponse:
     from_date, to_date = _validate_dates(from_date, to_date)
     hours = ReportsRepository(conn).get_listening_clock(from_date, to_date)
-    return ListeningClockResponse(hours=hours)
+    return ListeningClockResponse(hours=[HourlyPlayPoint(**r) for r in hours])
 
 
 @router.get("/reports/fingerprint", response_model=FingerprintResponse)
@@ -170,7 +180,7 @@ def get_reports_weekly_discovery_rate(
 ) -> WeeklyDiscoveryRateResponse:
     from_date, to_date = _validate_dates(from_date, to_date)
     weeks = ReportsRepository(conn).get_weekly_discovery_rate(from_date, to_date)
-    return WeeklyDiscoveryRateResponse(weeks=weeks)
+    return WeeklyDiscoveryRateResponse(weeks=[WeeklyDiscoveryPoint(**r) for r in weeks])
 
 
 @router.get("/reports/discovery-highlight", response_model=DiscoveryHighlightResponse)
@@ -216,7 +226,7 @@ def get_reports_loyal_artists(
 ) -> LoyalArtistsResponse:
     from_date, to_date = _validate_dates(from_date, to_date)
     rows = ReportsRepository(conn).get_loyal_artists(from_date, to_date)
-    return LoyalArtistsResponse(artists=rows)
+    return LoyalArtistsResponse(artists=[LoyalArtistEntry(**r) for r in rows])
 
 
 @router.get("/reports/source-effectiveness", response_model=SourceEffectivenessResponse)
@@ -227,4 +237,4 @@ def get_reports_source_effectiveness(
 ) -> SourceEffectivenessResponse:
     from_date, to_date = _validate_dates(from_date, to_date)
     rows = ReportsRepository(conn).get_source_effectiveness(from_date, to_date)
-    return SourceEffectivenessResponse(sources=rows)
+    return SourceEffectivenessResponse(sources=[SourceEffectivenessEntry(**r) for r in rows])

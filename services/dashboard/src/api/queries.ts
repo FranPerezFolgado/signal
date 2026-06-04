@@ -52,24 +52,35 @@ export function fetchTrackedArtists(page = 1) {
   );
 }
 
-export function fetchFollowingArtists(page = 1) {
-  return apiFetch<PaginatedResponse<ArtistListItem>>(
-    `/v1/artists?status=FOLLOWING&page=${page}&page_size=${PAGE_SIZE}`,
-  );
+export function fetchFollowingArtists(
+  page = 1,
+  genre: string | null = null,
+  sortBy: "first_seen_at" | "scrobble_count" | "first_play_at" = "first_seen_at",
+  order: "asc" | "desc" = "desc",
+) {
+  const p = new URLSearchParams({
+    status: "FOLLOWING",
+    page: String(page),
+    page_size: String(PAGE_SIZE),
+    sort_by: sortBy,
+    order,
+  });
+  if (genre) p.set("genre", genre);
+  return apiFetch<PaginatedResponse<ArtistListItem>>(`/v1/artists?${p.toString()}`);
 }
 
 export function patchArtistStatus(id: string, status: ArtistStatus) {
-  return apiFetch<{ id: string; name: string; status: ArtistStatus }>(
-    `/v1/artists/${id}/status`,
-    { method: "PATCH", body: JSON.stringify({ status }) },
-  );
+  return apiFetch<{ id: string; name: string; status: ArtistStatus }>(`/v1/artists/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export function patchArtistSpotify(id: string, spotifyId: string) {
-  return apiFetch<{ id: string; name: string }>(
-    `/v1/artists/${id}/spotify`,
-    { method: "PATCH", body: JSON.stringify({ spotify_id: spotifyId }) },
-  );
+  return apiFetch<{ id: string; name: string }>(`/v1/artists/${id}/spotify`, {
+    method: "PATCH",
+    body: JSON.stringify({ spotify_id: spotifyId }),
+  });
 }
 
 export function fetchStatsSummary() {
@@ -147,11 +158,15 @@ export function fetchReportsGenres(fromDate: string | null, toDate: string | nul
 }
 
 export function fetchReportsDiscoveryTimeline(fromDate: string | null, toDate: string | null) {
-  return apiFetch<DiscoveryTimelineResponse>(`/v1/reports/discovery-timeline${periodParams(fromDate, toDate)}`);
+  return apiFetch<DiscoveryTimelineResponse>(
+    `/v1/reports/discovery-timeline${periodParams(fromDate, toDate)}`,
+  );
 }
 
 export function fetchReportsListeningRatio(fromDate: string | null, toDate: string | null) {
-  return apiFetch<ListeningRatioResponse>(`/v1/reports/listening-ratio${periodParams(fromDate, toDate)}`);
+  return apiFetch<ListeningRatioResponse>(
+    `/v1/reports/listening-ratio${periodParams(fromDate, toDate)}`,
+  );
 }
 
 export function fetchReportsStreak(fromDate: string | null, toDate: string | null) {
@@ -163,7 +178,9 @@ export function fetchReportsFunnel(fromDate: string | null, toDate: string | nul
 }
 
 export function fetchReportsListeningClock(fromDate: string | null, toDate: string | null) {
-  return apiFetch<ListeningClockResponse>(`/v1/reports/listening-clock${periodParams(fromDate, toDate)}`);
+  return apiFetch<ListeningClockResponse>(
+    `/v1/reports/listening-clock${periodParams(fromDate, toDate)}`,
+  );
 }
 
 export function fetchReportsFingerprint(fromDate: string | null, toDate: string | null) {
@@ -175,11 +192,15 @@ export function fetchReportsGenreStream(fromDate: string | null, toDate: string 
 }
 
 export function fetchReportsWeeklyDiscoveryRate(fromDate: string | null, toDate: string | null) {
-  return apiFetch<WeeklyDiscoveryRateResponse>(`/v1/reports/weekly-discovery-rate${periodParams(fromDate, toDate)}`);
+  return apiFetch<WeeklyDiscoveryRateResponse>(
+    `/v1/reports/weekly-discovery-rate${periodParams(fromDate, toDate)}`,
+  );
 }
 
 export function fetchReportsDiscoveryHighlight(fromDate: string | null, toDate: string | null) {
-  return apiFetch<DiscoveryHighlightResponse>(`/v1/reports/discovery-highlight${periodParams(fromDate, toDate)}`);
+  return apiFetch<DiscoveryHighlightResponse>(
+    `/v1/reports/discovery-highlight${periodParams(fromDate, toDate)}`,
+  );
 }
 
 export function fetchReportsGenreDrift(fromDate: string | null, toDate: string | null) {
@@ -191,11 +212,15 @@ export function fetchReportsCalendar(fromDate: string | null, toDate: string | n
 }
 
 export function fetchReportsLoyalArtists(fromDate: string | null, toDate: string | null) {
-  return apiFetch<LoyalArtistsResponse>(`/v1/reports/loyal-artists${periodParams(fromDate, toDate)}`);
+  return apiFetch<LoyalArtistsResponse>(
+    `/v1/reports/loyal-artists${periodParams(fromDate, toDate)}`,
+  );
 }
 
 export function fetchReportsSourceEffectiveness(fromDate: string | null, toDate: string | null) {
-  return apiFetch<{ sources: SourceEffectivenessEntry[] }>(`/v1/reports/source-effectiveness${periodParams(fromDate, toDate)}`);
+  return apiFetch<{ sources: SourceEffectivenessEntry[] }>(
+    `/v1/reports/source-effectiveness${periodParams(fromDate, toDate)}`,
+  );
 }
 
 // --- Stats backlog queries ---

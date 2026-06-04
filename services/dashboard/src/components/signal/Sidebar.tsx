@@ -18,9 +18,7 @@ export function Sidebar() {
         <div className="mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
           // SIGNAL
         </div>
-        <div className="mt-1 font-mono text-xl font-bold tracking-tight text-foreground">
-          v0.2
-        </div>
+        <div className="mt-1 font-mono text-xl font-bold tracking-tight text-foreground">v0.2</div>
       </div>
 
       {/* Nav */}

@@ -16,11 +16,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import {
-  Tooltip as UITooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
@@ -85,13 +81,7 @@ function usePeriodDates(period: Period): { fromDate: string | null; toDate: stri
   return { fromDate: `${today.getFullYear()}-01-01`, toDate };
 }
 
-function PeriodSelector({
-  value,
-  onChange,
-}: {
-  value: Period;
-  onChange: (p: Period) => void;
-}) {
+function PeriodSelector({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
   return (
     <div className="flex gap-0">
       {PERIODS.map((p) => (
@@ -142,7 +132,10 @@ function ReportSection({
                   ?
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[260px] whitespace-normal leading-relaxed">
+              <TooltipContent
+                side="bottom"
+                className="max-w-[260px] whitespace-normal leading-relaxed"
+              >
                 {info}
               </TooltipContent>
             </UITooltip>
@@ -196,13 +189,7 @@ function Empty({ label }: { label: string }) {
 
 // ─── Headline panel ───────────────────────────────────────────────────────────
 
-function HeadlinePanel({
-  fromDate,
-  toDate,
-}: {
-  fromDate: string | null;
-  toDate: string | null;
-}) {
+function HeadlinePanel({ fromDate, toDate }: { fromDate: string | null; toDate: string | null }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["reports", "headline", fromDate, toDate],
     queryFn: () => fetchReportsHeadline(fromDate, toDate),
@@ -272,13 +259,7 @@ function RankedArtistList({
 
 // ─── Top artists panel ────────────────────────────────────────────────────────
 
-function TopArtistsPanel({
-  fromDate,
-  toDate,
-}: {
-  fromDate: string | null;
-  toDate: string | null;
-}) {
+function TopArtistsPanel({ fromDate, toDate }: { fromDate: string | null; toDate: string | null }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["reports", "top-artists", fromDate, toDate],
     queryFn: () => fetchReportsTopArtists(fromDate, toDate),
@@ -294,13 +275,7 @@ function TopArtistsPanel({
 
 // ─── Genre landscape panel ────────────────────────────────────────────────────
 
-function GenresPanel({
-  fromDate,
-  toDate,
-}: {
-  fromDate: string | null;
-  toDate: string | null;
-}) {
+function GenresPanel({ fromDate, toDate }: { fromDate: string | null; toDate: string | null }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["reports", "genres", fromDate, toDate],
     queryFn: () => fetchReportsGenres(fromDate, toDate),
@@ -337,13 +312,7 @@ function GenresPanel({
 
 // ─── Plays trend panel ────────────────────────────────────────────────────────
 
-function PlaysTrendPanel({
-  fromDate,
-  toDate,
-}: {
-  fromDate: string | null;
-  toDate: string | null;
-}) {
+function PlaysTrendPanel({ fromDate, toDate }: { fromDate: string | null; toDate: string | null }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["reports", "plays-trend", fromDate, toDate],
     queryFn: () => fetchReportsPlaysTrend(fromDate, toDate),
@@ -460,9 +429,19 @@ function ListeningRatioPanel({
   if (!data) return null;
 
   const segments = [
-    { label: "FAMILIAR", pct: data.familiar_pct, plays: data.familiar_plays, color: "bg-signal-orange" },
+    {
+      label: "FAMILIAR",
+      pct: data.familiar_pct,
+      plays: data.familiar_plays,
+      color: "bg-signal-orange",
+    },
     { label: "NEW", pct: data.new_pct, plays: data.new_plays, color: "bg-zinc-400" },
-    { label: "UNKNOWN", pct: 100 - data.familiar_pct - data.new_pct, plays: data.unknown_plays, color: "bg-panel-raised" },
+    {
+      label: "UNKNOWN",
+      pct: 100 - data.familiar_pct - data.new_pct,
+      plays: data.unknown_plays,
+      color: "bg-panel-raised",
+    },
   ];
 
   return (
@@ -495,13 +474,7 @@ function ListeningRatioPanel({
 
 // ─── Streak panel ─────────────────────────────────────────────────────────────
 
-function StreakPanel({
-  fromDate,
-  toDate,
-}: {
-  fromDate: string | null;
-  toDate: string | null;
-}) {
+function StreakPanel({ fromDate, toDate }: { fromDate: string | null; toDate: string | null }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["reports", "streak", fromDate, toDate],
     queryFn: () => fetchReportsStreak(fromDate, toDate),
@@ -623,13 +596,13 @@ function ListeningClockPanel({
   const maxPlays = Math.max(...data.hours.map((h) => h.plays), 1);
 
   const hourMap: Record<number, number> = {};
-  data.hours.forEach((h) => { hourMap[h.hour] = h.plays; });
+  data.hours.forEach((h) => {
+    hourMap[h.hour] = h.plays;
+  });
 
   const sectors = Array.from({ length: 24 }, (_, i) => {
     const plays = hourMap[i] ?? 0;
-    const outerR = plays > 0
-      ? innerR + (plays / maxPlays) * (maxOuterR - innerR)
-      : innerR + 2;
+    const outerR = plays > 0 ? innerR + (plays / maxPlays) * (maxOuterR - innerR) : innerR + 2;
     const θ1 = (i / 24) * 2 * Math.PI - Math.PI / 2;
     const θ2 = ((i + 1) / 24) * 2 * Math.PI - Math.PI / 2;
     const x1i = cx + innerR * Math.cos(θ1);
@@ -651,13 +624,25 @@ function ListeningClockPanel({
     return { hour: i, plays, d };
   });
 
-  const labelHours: [number, string][] = [[0, "12A"], [6, "6A"], [12, "12P"], [18, "6P"]];
+  const labelHours: [number, string][] = [
+    [0, "12A"],
+    [6, "6A"],
+    [12, "12P"],
+    [18, "6P"],
+  ];
   const labelR = maxOuterR + 14;
 
   return (
     <div className="pt-3 flex justify-center">
       <svg width={260} height={260} viewBox="0 0 260 260">
-        <circle cx={cx} cy={cy} r={maxOuterR} fill="none" stroke="var(--color-border)" strokeWidth={0.5} />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={maxOuterR}
+          fill="none"
+          stroke="var(--color-border)"
+          strokeWidth={0.5}
+        />
         <circle cx={cx} cy={cy} r={innerR} fill="var(--color-panel-raised)" />
         {sectors.map(({ hour, plays, d }) => (
           <path
@@ -688,8 +673,26 @@ function ListeningClockPanel({
             </text>
           );
         })}
-        <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--color-muted-foreground)" fontSize={8} fontFamily="monospace">PLAYS</text>
-        <text x={cx} y={cy + 6} textAnchor="middle" fill="var(--color-muted-foreground)" fontSize={7} fontFamily="monospace">BY HOUR</text>
+        <text
+          x={cx}
+          y={cy - 4}
+          textAnchor="middle"
+          fill="var(--color-muted-foreground)"
+          fontSize={8}
+          fontFamily="monospace"
+        >
+          PLAYS
+        </text>
+        <text
+          x={cx}
+          y={cy + 6}
+          textAnchor="middle"
+          fill="var(--color-muted-foreground)"
+          fontSize={7}
+          fontFamily="monospace"
+        >
+          BY HOUR
+        </text>
       </svg>
     </div>
   );
@@ -740,10 +743,7 @@ function FingerprintPanel({
             fillOpacity={0.25}
             strokeWidth={1.5}
           />
-          <Tooltip
-            contentStyle={TOOLTIP_STYLE}
-            formatter={(v: number) => [`${v}%`, undefined]}
-          />
+          <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}%`, undefined]} />
         </RadarChart>
       </ResponsiveContainer>
     </div>
@@ -867,7 +867,12 @@ function WeeklyDiscoveryRatePanel({
             cursor={{ fill: "var(--color-panel-raised)" }}
             formatter={(v: number) => [v, "new artists"]}
           />
-          <Bar dataKey="count" fill="var(--color-signal-orange)" radius={[1, 1, 0, 0]} maxBarSize={32} />
+          <Bar
+            dataKey="count"
+            fill="var(--color-signal-orange)"
+            radius={[1, 1, 0, 0]}
+            maxBarSize={32}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -900,9 +905,7 @@ function DiscoveryHighlightPanel({
       <div className="mono text-[9px] uppercase tracking-[0.22em] text-signal-orange">
         DISCOVERY OF THE PERIOD
       </div>
-      <div className="font-mono text-lg font-bold tracking-tight text-foreground">
-        {data.name}
-      </div>
+      <div className="font-mono text-lg font-bold tracking-tight text-foreground">{data.name}</div>
       {data.first_seen_at && (
         <div className="mono text-[9px] text-muted-foreground">
           FIRST SEEN {new Date(data.first_seen_at).toISOString().slice(0, 10)}
@@ -926,13 +929,7 @@ function DiscoveryHighlightPanel({
 
 // ─── Genre drift panel ────────────────────────────────────────────────────────
 
-function GenreDriftPanel({
-  fromDate,
-  toDate,
-}: {
-  fromDate: string | null;
-  toDate: string | null;
-}) {
+function GenreDriftPanel({ fromDate, toDate }: { fromDate: string | null; toDate: string | null }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["reports", "genre-drift", fromDate, toDate],
     queryFn: () => fetchReportsGenreDrift(fromDate, toDate),
@@ -956,7 +953,9 @@ function GenreDriftPanel({
         ) : (
           entries.slice(0, 5).map((g, i) => (
             <div key={g.genre} className="flex items-center gap-2 py-1">
-              <span className="mono w-3 text-[9px] tabular-nums text-muted-foreground">{i + 1}</span>
+              <span className="mono w-3 text-[9px] tabular-nums text-muted-foreground">
+                {i + 1}
+              </span>
               <div className="flex-1 min-w-0">
                 <div className="mono truncate text-[10px] text-foreground">{g.genre}</div>
                 <div className="mt-0.5 h-0.5 bg-panel-raised">
@@ -1022,7 +1021,9 @@ function CalendarHeatmapPanel({
   if (!data || data.days.length === 0) return <Empty label="NO PLAY DATA" />;
 
   const playMap: Record<string, number> = {};
-  data.days.forEach((d) => { playMap[d.date] = d.plays; });
+  data.days.forEach((d) => {
+    playMap[d.date] = d.plays;
+  });
   const maxPlays = Math.max(...Object.values(playMap), 1);
 
   // Parse as UTC midnight to avoid local-timezone date shifts in toISOString()
@@ -1040,7 +1041,11 @@ function CalendarHeatmapPanel({
     const week: { date: string; plays: number; inRange: boolean }[] = [];
     for (let d = 0; d < 7; d++) {
       const dateStr = cur.toISOString().slice(0, 10);
-      week.push({ date: dateStr, plays: playMap[dateStr] ?? 0, inRange: cur >= start && cur <= end });
+      week.push({
+        date: dateStr,
+        plays: playMap[dateStr] ?? 0,
+        inRange: cur >= start && cur <= end,
+      });
       cur.setUTCDate(cur.getUTCDate() + 1);
     }
     weeks.push(week);
@@ -1136,7 +1141,12 @@ function SourceEffectivenessPanel({
             </span>
             <span
               className="mono text-[10px] tabular-nums"
-              style={{ color: s.publish_rate >= 0.1 ? "var(--color-signal-orange)" : "var(--color-muted-foreground)" }}
+              style={{
+                color:
+                  s.publish_rate >= 0.1
+                    ? "var(--color-signal-orange)"
+                    : "var(--color-muted-foreground)",
+              }}
             >
               {(s.publish_rate * 100).toFixed(0)}% published
             </span>

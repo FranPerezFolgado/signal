@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 import psycopg
@@ -17,9 +17,22 @@ class ArtistRepository:
         high_priority: bool | None,
         page: int,
         page_size: int,
+        genre: str | None = None,
+        sort_by: str | None = None,
+        order: str = "desc",
     ) -> tuple[list[dict], int]:
-        where, params = self._build_artist_filters(status, high_priority)
+        where, params = self._build_artist_filters(status, high_priority, genre)
         offset = (page - 1) * page_size
+
+        # sort_by and order are validated by the router (Literal types); interpolation is safe.
+        _SORT_COLS = {
+            "first_seen_at": "a.first_seen_at",
+            "scrobble_count": "a.scrobble_count",
+            "first_play_at": "first_play_at",
+        }
+        _col = _SORT_COLS.get(sort_by or "", "a.scrobble_count")
+        _dir = "ASC" if order == "asc" else "DESC"
+        _nulls = "NULLS LAST" if sort_by == "first_play_at" else ""
 
         with self._conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
@@ -28,11 +41,14 @@ class ArtistRepository:
                     a.id, a.name, a.status, a.high_priority,
                     a.scrobble_count, a.genres, a.source, a.origin_artist_id,
                     o.name AS origin_artist_name,
-                    a.external_ids->>'spotify' AS spotify_uri
+                    a.external_ids->>'spotify' AS spotify_uri,
+                    (SELECT MIN(lh.played_at)
+                     FROM listening_history lh
+                     WHERE lower(lh.artist) = lower(a.name)) AS first_play_at
                 FROM artists a
                 LEFT JOIN artists o ON o.id = a.origin_artist_id
                 {where}
-                ORDER BY a.scrobble_count DESC
+                ORDER BY {_col} {_dir} {_nulls}
                 LIMIT %s OFFSET %s
                 """,
                 [*params, page_size, offset],
@@ -158,6 +174,7 @@ class ArtistRepository:
     def _build_artist_filters(
         status: str | None,
         high_priority: bool | None,
+        genre: str | None = None,
     ) -> tuple[str, list]:
         conditions: list[str] = []
         params: list = []
@@ -168,6 +185,9 @@ class ArtistRepository:
         if high_priority is not None:
             conditions.append("a.high_priority = %s")
             params.append(high_priority)
+        if genre is not None:
+            conditions.append("%s = ANY(a.genres)")
+            params.append(genre)
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         return where, params
@@ -182,7 +202,8 @@ class StatsRepository:
             cur.execute("SELECT status, COUNT(*) AS cnt FROM artists GROUP BY status")
             rows = cur.fetchall()
 
-        counts: dict[str, int] = {s: 0 for s in ("TRACKED", "FOLLOWING", "PUBLISHED", "BLACKLISTED")}
+        statuses = ("TRACKED", "FOLLOWING", "PUBLISHED", "BLACKLISTED")
+        counts: dict[str, int] = {s: 0 for s in statuses}
         for row in rows:
             key = row["status"].upper()
             if key in counts:
@@ -199,17 +220,18 @@ class StatsRepository:
     def get_health(self, threshold_minutes: int) -> list[dict]:
         with self._conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
-                "SELECT service, last_played_at, updated_at FROM ingester_checkpoints ORDER BY service"
+                "SELECT service, last_played_at, updated_at"
+                " FROM ingester_checkpoints ORDER BY service"
             )
             rows = cur.fetchall()
 
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         threshold = timedelta(minutes=threshold_minutes)
         return [
             {
                 "service": row["service"],
                 "last_seen_at": row["last_played_at"],
-                "stale": (now - row["last_played_at"].replace(tzinfo=timezone.utc)) > threshold
+                "stale": (now - row["last_played_at"].replace(tzinfo=UTC)) > threshold
                 if row["last_played_at"].tzinfo is None
                 else (now - row["last_played_at"]) > threshold,
             }
@@ -236,15 +258,15 @@ class StatsRepository:
             cur.execute(
                 """
                 SELECT
-                    COUNT(*)                                                         AS total_scored,
+                    COUNT(*) AS total_scored,
                     MIN(r.score * 100)                                               AS min_score,
                     MAX(r.score * 100)                                               AS max_score,
                     AVG(r.score * 100)                                               AS mean_score,
-                    COUNT(*) FILTER (WHERE r.score * 100 >= 0   AND r.score * 100 < 20)   AS bucket_0,
-                    COUNT(*) FILTER (WHERE r.score * 100 >= 20  AND r.score * 100 < 40)   AS bucket_1,
-                    COUNT(*) FILTER (WHERE r.score * 100 >= 40  AND r.score * 100 < 60)   AS bucket_2,
-                    COUNT(*) FILTER (WHERE r.score * 100 >= 60  AND r.score * 100 < 80)   AS bucket_3,
-                    COUNT(*) FILTER (WHERE r.score * 100 >= 80  AND r.score * 100 <= 100) AS bucket_4
+                    COUNT(*) FILTER (WHERE r.score * 100 >= 0  AND r.score * 100 < 20)  AS bucket_0,
+                    COUNT(*) FILTER (WHERE r.score * 100 >= 20 AND r.score * 100 < 40)  AS bucket_1,
+                    COUNT(*) FILTER (WHERE r.score * 100 >= 40 AND r.score * 100 < 60)  AS bucket_2,
+                    COUNT(*) FILTER (WHERE r.score * 100 >= 60 AND r.score * 100 < 80)  AS bucket_3,
+                    COUNT(*) FILTER (WHERE r.score * 100 >= 80 AND r.score * 100 <= 100) AS bucket_4
                 FROM artist_recommendations r
                 JOIN artists a ON a.id = r.artist_id
                 WHERE a.status != 'BLACKLISTED'
@@ -260,11 +282,16 @@ class StatsRepository:
             "max_score": float(row["max_score"]) if row["max_score"] is not None else None,
             "mean_score": float(row["mean_score"]) if row["mean_score"] is not None else None,
             "buckets": [
-                {"label": "0–20",   "min_score": 0.0,  "max_score": 20.0,  "count": row["bucket_0"] or 0},
-                {"label": "20–40",  "min_score": 20.0, "max_score": 40.0,  "count": row["bucket_1"] or 0},
-                {"label": "40–60",  "min_score": 40.0, "max_score": 60.0,  "count": row["bucket_2"] or 0},
-                {"label": "60–80",  "min_score": 60.0, "max_score": 80.0,  "count": row["bucket_3"] or 0},
-                {"label": "80–100", "min_score": 80.0, "max_score": 100.0, "count": row["bucket_4"] or 0},
+                {"label": "0–20",   "min_score": 0.0,  "max_score": 20.0,
+                 "count": row["bucket_0"] or 0},
+                {"label": "20–40",  "min_score": 20.0, "max_score": 40.0,
+                 "count": row["bucket_1"] or 0},
+                {"label": "40–60",  "min_score": 40.0, "max_score": 60.0,
+                 "count": row["bucket_2"] or 0},
+                {"label": "60–80",  "min_score": 60.0, "max_score": 80.0,
+                 "count": row["bucket_3"] or 0},
+                {"label": "80–100", "min_score": 80.0, "max_score": 100.0,
+                 "count": row["bucket_4"] or 0},
             ],
         }
 
@@ -308,11 +335,11 @@ class StatsRepository:
                 ),
                 daily AS (
                     SELECT
-                        lh.played_at::date                                                  AS day,
-                        COUNT(*)                                                             AS total_plays,
+                        lh.played_at::date AS day,
+                        COUNT(*) AS total_plays,
                         COUNT(*) FILTER (
                             WHERE a.added_at >= lh.played_at - INTERVAL '30 days'
-                        )                                                                    AS novel_plays
+                        ) AS novel_plays
                     FROM listening_history lh
                     LEFT JOIN artists a ON a.name = lh.artist
                     WHERE lh.played_at >= NOW() - (INTERVAL '1 day' * %s)
@@ -395,8 +422,16 @@ class StatsRepository:
             row = cur.fetchone()
             assert row is not None
             return {
-                "avg_genre_novelty": float(row["avg_genre_novelty"]) if row["avg_genre_novelty"] is not None else None,
-                "avg_popularity_norm": float(row["avg_popularity_norm"]) if row["avg_popularity_norm"] is not None else None,
+                "avg_genre_novelty": (
+                    float(row["avg_genre_novelty"])
+                    if row["avg_genre_novelty"] is not None
+                    else None
+                ),
+                "avg_popularity_norm": (
+                    float(row["avg_popularity_norm"])
+                    if row["avg_popularity_norm"] is not None
+                    else None
+                ),
                 "total": int(row["total"]) if row["total"] else 0,
             }
 
@@ -519,9 +554,15 @@ class StatsRepository:
                     FROM artist_recommendations
                 )
                 SELECT
-                    CASE bucket WHEN 1 THEN '<1D' WHEN 2 THEN '1-7D' WHEN 3 THEN '7-30D' ELSE '>30D' END AS label,
+                    CASE bucket
+                        WHEN 1 THEN '<1D' WHEN 2 THEN '1-7D'
+                        WHEN 3 THEN '7-30D' ELSE '>30D'
+                    END AS label,
                     bucket AS sort_order,
-                    CASE bucket WHEN 1 THEN 1 WHEN 2 THEN 7 WHEN 3 THEN 30 ELSE NULL END AS max_age_days,
+                    CASE bucket
+                        WHEN 1 THEN 1 WHEN 2 THEN 7
+                        WHEN 3 THEN 30 ELSE NULL
+                    END AS max_age_days,
                     COUNT(*) AS count
                 FROM raw
                 GROUP BY bucket
@@ -540,19 +581,26 @@ class ReportsRepository:
 
     def _date_filter(self, from_date: date | None, to_date: date | None) -> tuple[str, list]:
         if from_date and to_date:
-            return "AND played_at >= %s AND played_at < %s", [from_date, to_date + timedelta(days=1)]
+            return (
+                "AND played_at >= %s AND played_at < %s",
+                [from_date, to_date + timedelta(days=1)],
+            )
         return "", []
 
     def get_headline(self, from_date: date | None, to_date: date | None) -> dict:
         clause, params = self._date_filter(from_date, to_date)
         with self._conn.cursor(row_factory=dict_row) as cur:
             cur.execute(
-                f"SELECT COUNT(*) AS total_plays, COUNT(DISTINCT LOWER(artist)) AS unique_artists FROM listening_history WHERE TRUE {clause}",
+                f"SELECT COUNT(*) AS total_plays, COUNT(DISTINCT LOWER(artist)) AS unique_artists"
+                f" FROM listening_history WHERE TRUE {clause}",
                 params,
             )
             row = cur.fetchone()
             assert row is not None
-        return {"total_plays": int(row["total_plays"]), "unique_artists": int(row["unique_artists"])}
+        return {
+            "total_plays": int(row["total_plays"]),
+            "unique_artists": int(row["unique_artists"]),
+        }
 
     def get_top_artists(self, from_date: date | None, to_date: date | None) -> list[dict]:
         clause, params = self._date_filter(from_date, to_date)
@@ -772,7 +820,7 @@ class ReportsRepository:
                 current_run = 1
 
         current = 0
-        for i in range(len(play_dates) - 1, -1, -1):
+        for _ in range(len(play_dates) - 1, -1, -1):
             expected = period_end - timedelta(days=current)
             if play_dates[-(current + 1)] == expected:
                 current += 1
@@ -804,7 +852,9 @@ class ReportsRepository:
         if not entries:
             with self._conn.cursor(row_factory=dict_row) as cur:
                 cur.execute("SELECT status, COUNT(*) AS count FROM artists GROUP BY status")
-                entries = [{"status": r["status"], "count": int(r["count"])} for r in cur.fetchall()]
+                entries = [
+                    {"status": r["status"], "count": int(r["count"])} for r in cur.fetchall()
+                ]
 
         status_order = {"TRACKED": 1, "FOLLOWING": 2, "PUBLISHED": 3, "BLACKLISTED": 4}
         entries.sort(key=lambda e: status_order.get(e["status"], 5))
@@ -837,7 +887,9 @@ class ReportsRepository:
                 SELECT
                     COUNT(*) AS total_plays,
                     COUNT(DISTINCT LOWER(artist)) AS unique_artists,
-                    COUNT(DISTINCT date_trunc('day', played_at AT TIME ZONE 'UTC')::date) AS listening_days,
+                    COUNT(DISTINCT
+                        date_trunc('day', played_at AT TIME ZONE 'UTC')::date
+                    ) AS listening_days,
                     MIN(played_at AT TIME ZONE 'UTC')::date AS first_day,
                     MAX(played_at AT TIME ZONE 'UTC')::date AS last_day
                 FROM listening_history
@@ -847,7 +899,10 @@ class ReportsRepository:
             )
             row = cur.fetchone()
             if not row or row["total_plays"] == 0:
-                return {"consistency": 0.0, "variety": 0.0, "discovery": 0.0, "night_owl": 0.0, "depth": 0.0}
+                return {
+                    "consistency": 0.0, "variety": 0.0, "discovery": 0.0,
+                    "night_owl": 0.0, "depth": 0.0,
+                }
 
             total_plays = int(row["total_plays"])
             unique_artists = int(row["unique_artists"])
@@ -921,7 +976,10 @@ class ReportsRepository:
                       AND lh.played_at >= %s AND lh.played_at < %s
                       AND a.first_seen_at >= %s AND a.first_seen_at < %s
                     """,
-                    [from_date, to_date + timedelta(days=1), from_date, to_date + timedelta(days=1)],
+                    [
+                        from_date, to_date + timedelta(days=1),
+                        from_date, to_date + timedelta(days=1),
+                    ],
                 )
             else:
                 cutoff = today - timedelta(days=90)
@@ -947,7 +1005,9 @@ class ReportsRepository:
             "depth": depth,
         }
 
-    def get_genre_stream(self, from_date: date | None, to_date: date | None, top_n: int = 8) -> dict:
+    def get_genre_stream(
+        self, from_date: date | None, to_date: date | None, top_n: int = 8
+    ) -> dict:
         clause, date_params = self._date_filter(from_date, to_date)
 
         with self._conn.cursor(row_factory=dict_row) as cur:
@@ -970,7 +1030,10 @@ class ReportsRepository:
             cur.execute(
                 f"""
                 SELECT
-                    to_char(date_trunc('week', played_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS week_start,
+                    to_char(
+                        date_trunc('week', played_at AT TIME ZONE 'UTC'),
+                        'YYYY-MM-DD'
+                    ) AS week_start,
                     g AS genre,
                     COUNT(*) AS plays
                 FROM listening_history, LATERAL unnest(genres) AS g
@@ -997,7 +1060,10 @@ class ReportsRepository:
             if from_date and to_date:
                 cur.execute(
                     """
-                    SELECT to_char(date_trunc('week', first_seen_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS week_start,
+                    SELECT to_char(
+                               date_trunc('week', first_seen_at AT TIME ZONE 'UTC'),
+                               'YYYY-MM-DD'
+                           ) AS week_start,
                            COUNT(*) AS count
                     FROM artists
                     WHERE first_seen_at IS NOT NULL
@@ -1010,7 +1076,10 @@ class ReportsRepository:
             else:
                 cur.execute(
                     """
-                    SELECT to_char(date_trunc('week', first_seen_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS week_start,
+                    SELECT to_char(
+                               date_trunc('week', first_seen_at AT TIME ZONE 'UTC'),
+                               'YYYY-MM-DD'
+                           ) AS week_start,
                            COUNT(*) AS count
                     FROM artists
                     WHERE first_seen_at IS NOT NULL
@@ -1018,7 +1087,10 @@ class ReportsRepository:
                     ORDER BY week_start
                     """
                 )
-            return [{"week_start": r["week_start"], "count": int(r["count"])} for r in cur.fetchall()]
+            return [
+                {"week_start": r["week_start"], "count": int(r["count"])}
+                for r in cur.fetchall()
+            ]
 
     def get_discovery_highlight(self, from_date: date | None, to_date: date | None) -> dict | None:
         if not from_date or not to_date:
@@ -1078,7 +1150,11 @@ class ReportsRepository:
                 return []
             max_p = rows[0]["plays"]
             return [
-                {"genre": r["genre"], "plays": int(r["plays"]), "weight": round(r["plays"] / max_p, 4)}
+                {
+                    "genre": r["genre"],
+                    "plays": int(r["plays"]),
+                    "weight": round(r["plays"] / max_p, 4),
+                }
                 for r in rows
             ]
 
@@ -1141,7 +1217,12 @@ class ReportsRepository:
             return []
         max_plays = rows[0]["plays"]
         return [
-            {"rank": i + 1, "name": row["name"], "plays": int(row["plays"]), "weight": round(row["plays"] / max_plays, 4)}
+            {
+                "rank": i + 1,
+                "name": row["name"],
+                "plays": int(row["plays"]),
+                "weight": round(row["plays"] / max_plays, 4),
+            }
             for i, row in enumerate(rows)
         ]
 

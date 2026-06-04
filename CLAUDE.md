@@ -60,5 +60,5 @@ Active collection: `signal`
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/016-reports-tab/plan.md`
+`specs/017-following-search-filter/plan.md`
 <!-- SPECKIT END -->

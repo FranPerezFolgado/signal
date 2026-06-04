@@ -5,7 +5,6 @@ Covers: history-tracker, novelty-detector, scorer.
 """
 
 import pytest
-
 from helpers import stack_available, wait_for_recommendation
 
 pytestmark = pytest.mark.skipif(

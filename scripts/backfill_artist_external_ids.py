@@ -74,7 +74,10 @@ def _search_artist(name: str, access_token: str) -> str | None:
             except (ValueError, TypeError):
                 retry_after = 5
             if retry_after > 120:
-                print(f"\n[quota exhausted] Spotify says retry after {retry_after}s ({retry_after // 3600}h).")
+                print(
+                    f"\n[quota exhausted] Spotify says retry after {retry_after}s"
+                    f" ({retry_after // 3600}h)."
+                )
                 print("Re-run the script later — it will skip already-resolved artists.")
                 sys.exit(0)
             print(f"  [rate-limited] sleeping {retry_after}s …")

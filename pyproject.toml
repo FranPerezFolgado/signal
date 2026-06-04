@@ -44,6 +44,13 @@ ignore = [
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
+explicit_package_bases = true
+exclude = ["tests/", "tests\\.py$"]
 
 [tool.pytest.ini_options]
 testpaths = ["services", "shared", "tests"]
+addopts = "--import-mode=importlib -m 'not integration'"
+pythonpath = ["."]
+markers = [
+    "integration: requires live Kafka and Postgres (run separately with -m integration)",
+]
