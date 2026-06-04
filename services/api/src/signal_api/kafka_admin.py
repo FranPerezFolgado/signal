@@ -42,8 +42,8 @@ def get_pipeline_stats(bootstrap_servers: str) -> list[dict]:
     all_tps: set[TopicPartition] = set()
     for gid in group_ids:
         try:
-            results = admin.list_consumer_group_offsets([ConsumerGroupTopicPartitions(gid)])
-            for _, fut in results.items():
+            offsets_result = admin.list_consumer_group_offsets([ConsumerGroupTopicPartitions(gid)])
+            for _, fut in offsets_result.items():
                 try:
                     result = fut.result()
                     partitions: dict[tuple[str, int], int] = {}
