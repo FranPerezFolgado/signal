@@ -7,6 +7,7 @@ const NAV = [
   { to: "/following", label: "FOLLOWING", index: "03" },
   { to: "/stats", label: "STATS", index: "04" },
   { to: "/reports", label: "REPORTS", index: "05" },
+  { to: "/graph", label: "GRAPH", index: "06" },
 ] as const;
 
 export function Sidebar() {

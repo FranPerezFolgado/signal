@@ -1,6 +1,8 @@
 import { apiFetch } from "./client";
 import type {
   ArtistListItem,
+  GraphData,
+  GraphFilters,
   ArtistSourcesResponse,
   ArtistStatus,
   ArtistStatusCounts,
@@ -239,4 +241,18 @@ export function fetchStatsStaleRecs(thresholdDays = 14) {
 
 export function fetchStatsScoreFreshness() {
   return apiFetch<ScoreFreshnessResponse>("/v1/stats/score-freshness");
+}
+
+// --- Graph queries ---
+
+export function fetchGraphData(filters: GraphFilters = {}) {
+  const p = new URLSearchParams();
+  if (filters.status) p.set("status", filters.status);
+  if (filters.genre) p.set("genre", filters.genre);
+  if (filters.min_score != null) p.set("min_score", String(filters.min_score));
+  if (filters.min_genre_artists != null)
+    p.set("min_genre_artists", String(filters.min_genre_artists));
+  if (filters.limit != null) p.set("limit", String(filters.limit));
+  const qs = p.toString();
+  return apiFetch<GraphData>(`/v1/graph/data${qs ? `?${qs}` : ""}`);
 }
