@@ -1326,8 +1326,7 @@ class GraphRepository:
             spotify_uri = row.get("spotify_uri") or ""
             spotify_id: str | None = None
             if spotify_uri:
-                parts = spotify_uri.split(":")
-                spotify_id = parts[-1] if parts else None
+                spotify_id = spotify_uri.replace("spotify:artist:", "") or None
 
             nodes.append({
                 "key": artist_key,

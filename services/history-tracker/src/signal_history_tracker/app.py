@@ -98,6 +98,7 @@ def run_consumer(settings: Settings) -> None:
                     dlq.publish("DB_FAILURE", "database error", raw)
                     consumer.commit()
                     inc_error(_CLIENT_ID, "db_write")
+                    inc_consumed(_CLIENT_ID, _INPUT_TOPIC)
                     failed_dlq += 1
                     continue
 
@@ -112,6 +113,7 @@ def run_consumer(settings: Settings) -> None:
                     dlq.publish("KAFKA_EMIT_FAILURE", "produce error", raw)
                     consumer.commit()
                     inc_error(_CLIENT_ID, "kafka_produce")
+                    inc_consumed(_CLIENT_ID, _INPUT_TOPIC)
                     failed_dlq += 1
                     continue
 
@@ -120,6 +122,7 @@ def run_consumer(settings: Settings) -> None:
                     dlq.publish("KAFKA_EMIT_FAILURE", "flush timeout", raw)
                     consumer.commit()
                     inc_error(_CLIENT_ID, "kafka_produce")
+                    inc_consumed(_CLIENT_ID, _INPUT_TOPIC)
                     failed_dlq += 1
                     continue
 
