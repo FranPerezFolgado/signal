@@ -15,7 +15,7 @@ All 8 services are implemented and wired into Docker Compose:
 | `normalizer` | ✅ Done | Schema unification, Spotify ID resolution, new artist detection |
 | `enricher` | ✅ Done | Rate limiter + circuit breaker + backoff, Last.fm fallback |
 | `history-tracker` | ✅ Done | Upsert, play_count + scrobble_count tracking |
-| `novelty-detector` | ✅ Done | Python (Go migration in v3) |
+| `novelty-detector` | ✅ Done | Go 1.23 (migration complete; see ADR-017, ADR-018) |
 | `scorer` | ✅ Done | 2-factor score (genre_novelty + popularity_norm) |
 | `artist-tracker` | ✅ Done | Polling top-tracks of FOLLOWING artists |
 | `api` | ✅ Done | FastAPI + Swagger UI, full artist lifecycle endpoints |
@@ -61,22 +61,11 @@ This closes the discovery loop: you follow an artist → Signal finds artists li
 - New `source` value: `LASTFM_SIMILAR` (schema already supports it as free-text)
 - Respect Last.fm rate limits; share the existing backoff primitive from `signal_common`
 
-### novelty-detector: Go migration
-
-The Python novelty-detector is a placeholder. This service is the ideal Go candidate (ADR-003):
-- Bounded responsibility: set membership check + novelty ratio calculation
-- No ORM, no complex domain logic
-- High-throughput Kafka consumer without Python GIL overhead
-
-**Scope**:
-- Rewrite `services/novelty-detector/` in Go
-- Same Kafka consumer group ID, same input/output schemas (`tracks.enriched` → `tracks.novel`)
-- No change to any other service — the migration is transparent at the topic boundary
-
 ### ADRs to write for v3
 
 - **ADR-014 — Last.fm `artist.getSimilar` as graph expansion source**: why not MusicBrainz or a paid alternative; why Last.fm; what the precision/recall trade-off looks like at 1-hop expansion
-- **ADR-015 — Go for novelty-detector**: summarises ADR-003 intent; documents the actual migration
+
+> **Note**: novelty-detector Go migration is ✅ complete. See ADR-017 and ADR-018.
 
 ---
 
@@ -175,27 +164,31 @@ GET  /stats/curators                 # precision per curator
 
 ---
 
-## v7 — Observability and CI/CD
+## v7 — Observability (partial ✅) and CI/CD
 
 **Goal**: production-ready instrumentation and automated pipelines.
 
 ### Observability
 
-- **OpenTelemetry** in all services: traces for each Kafka message processed, spans for external API calls (Spotify, Last.fm)
-- **Prometheus metrics**: tracks/hour, novel ratio, enricher circuit breaker state, scorer latency, artist discovery rate
-- **Grafana dashboards**: one board per service + one pipeline overview board
+**Done (feature 019)**:
+- Prometheus metrics in all services via `signal_common.metrics`: `signal_events_consumed_total`, `signal_events_produced_total`, `signal_processing_errors_total`
+- kafka-exporter for consumer group lag (`kafka_consumergroup_lag_sum`)
+- Grafana "Signal Pipeline" dashboard: throughput, consumer lag, error rates
+- Optional `tools` Docker Compose profile (`make obs-up`); see ADR-023
 
-Key metrics to alert on:
-- Enricher consumer lag > threshold
-- Circuit breaker in OPEN state > N minutes
-- Novel ratio drops to 0 (pipeline stalled)
-- `artist-tracker` not updating `last_explored_at` (polling loop dead)
+**Remaining**:
+- **OpenTelemetry traces**: spans per Kafka message and per external API call (Spotify, Last.fm) — Prometheus counters cover aggregate rates but not per-request latency
+- **Circuit breaker state metric**: expose enricher CB state as a Prometheus gauge
+- **Alerting**: Alertmanager rules for lag > threshold, novel ratio == 0, polling loop stalled
 
 ### CI/CD
 
-- **GitHub Actions per service**: lint (ruff) + type check (mypy) + test (pytest) + Docker build
+**Done**:
+- GitHub Actions per service: lint (ruff) + type check (mypy) + test (pytest) + Docker build
+- End-to-end pipeline smoke test in CI
+
+**Remaining**:
 - **Schema Registry**: formalise Kafka topic schemas with Avro/JSON Schema Registry; break the build if a producer changes schema without a migration
-- **Integration test job**: spins up docker-compose in CI, runs end-to-end pipeline smoke test
 
 ---
 

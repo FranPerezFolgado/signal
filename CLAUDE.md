@@ -3,11 +3,12 @@
 Musical artist discovery system. Event-driven pipeline that ingests Last.fm listening history, normalises with Spotify, detects new artists, and scores them by novelty.
 
 ## Stack
-- **Language**: Python 3.12 (all MVP services; novelty-detector migrates to Go in v2)
+- **Language**: Python 3.12 (all services except novelty-detector); novelty-detector: Go 1.23
 - **Messaging**: Kafka (KRaft mode, no Zookeeper)
 - **DB**: PostgreSQL
 - **API**: FastAPI + Swagger UI
 - **Infra**: Docker Compose (no cloud, no K8s in the MVP)
+- **Observability**: Prometheus + Grafana + kafka-exporter (optional `tools` profile — `make obs-up`)
 
 ## Services (MVP v2)
 | Service | Description |
@@ -34,7 +35,7 @@ signal/
 ├── infra/
 │   ├── docker-compose.yml     # Kafka (KRaft) + PostgreSQL
 │   └── postgres/init.sql      # Initial schema
-├── services/                  # One directory per Python service; each has README.md
+├── services/                  # One directory per service; each has README.md (novelty-detector is Go, rest Python)
 ├── shared/python-common/      # Kafka client, logging, shared models
 ├── scripts/onboarding.py      # Initial classification (run once)
 └── docs/                      # Indexed by QMD (collection: signal)
@@ -42,7 +43,7 @@ signal/
     └── sessions/              # Session summaries
 
 ## ADRs pending
-Python MVP / Go v2 · Artist as primary entity · Initial classification
+Artist as primary entity · Initial classification
 
 ## QMD Collection
 Active collection: `signal`

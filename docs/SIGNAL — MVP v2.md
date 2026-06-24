@@ -37,11 +37,10 @@ Nada más. Sin expansión de grafo completa, sin curadores, sin dashboard, sin G
 - `artist-tracker` con expansión de grafo real (Last.fm `artist.getSimilar` → v3)
 - `stats-collector` y métricas
 - `curator-aggregator` y curadores
-- `novelty-detector` en Go (Python en MVP, Go en v3)
 - Dashboard React
 - `soundcloud-ingester`
 - Schema Registry
-- Observabilidad (OpenTelemetry + Grafana)
+- Observabilidad completa (OpenTelemetry traces, alerting) — Prometheus + Grafana básico ✅ completado en feature 019
 - CI/CD
 - Kubernetes
 

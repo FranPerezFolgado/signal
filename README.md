@@ -22,7 +22,7 @@ Each box is an independent Docker container. Each arrow is a Kafka topic. The AP
 | [normalizer](services/normalizer/README.md) | Python | `raw.plays` | `tracks.normalized` | Resolves Spotify IDs; computes `signal_id` |
 | [enricher](services/enricher/README.md) | Python | `tracks.normalized` | `tracks.enriched` | Fetches genres + popularity (Spotify / Last.fm fallback) |
 | [history-tracker](services/history-tracker/README.md) | Python | `tracks.enriched` | `listening.history` | Persists plays and artists to PostgreSQL |
-| [novelty-detector](services/novelty-detector/README.md) | Python | `tracks.enriched` | `tracks.novel` | Detects new artists/genres; auto-promotes artists |
+| [novelty-detector](services/novelty-detector/README.md) | Go | `tracks.enriched` | `tracks.novel` | Detects new artists/genres; auto-promotes artists |
 | [scorer](services/scorer/README.md) | Python | `tracks.novel` | — | Scores novel artists into `artist_recommendations` |
 | [artist-tracker](services/artist-tracker/README.md) | Python | — | `raw.tracks` | Polls Spotify top-tracks for `FOLLOWING` artists |
 | [api](services/api/README.md) | Python | — | — | FastAPI: artist lifecycle management + recommendations |
@@ -134,7 +134,7 @@ uv run pytest
 uv run pytest services/normalizer/
 uv run pytest services/enricher/
 uv run pytest services/history-tracker/
-uv run pytest services/novelty-detector/
+cd services/novelty-detector && go test ./...  # Go service
 uv run pytest shared/python-common/
 ```
 
@@ -225,6 +225,9 @@ All topics: 3 partitions, replication factor 1 (single-node), 7-day retention.
 | `make onboarding` | Run the artist classification script (one-off) |
 | `make ingester-backfill` | Load full Last.fm history (one-off) |
 | `make kafka-ui-up` | Start Kafka UI at http://localhost:8080 |
+| `make obs-up` | Start Prometheus + Grafana + kafka-exporter (observability stack) |
+| `make obs-down` | Stop observability stack |
+| `make obs-logs` | Tail Prometheus + Grafana logs |
 
 ---
 
@@ -255,6 +258,30 @@ make kafka-ui-up
 ```
 
 Browse topics, inspect messages, check consumer group lag.
+
+### Prometheus + Grafana
+
+An optional observability stack is available via the `tools` profile:
+
+```bash
+make obs-up
+# Grafana → http://localhost:3000  (admin / admin)
+# Prometheus → http://localhost:9090
+```
+
+This starts Prometheus, Grafana, and a Kafka consumer-lag exporter. Grafana loads a pre-provisioned **Signal Pipeline** dashboard with:
+- Events consumed / produced per minute by service and topic
+- Kafka consumer group lag (aggregated and by group)
+- Processing error rates by service and error type
+
+All services expose `/metrics` on `METRICS_PORT` (default `9100`). Prometheus scrapes every 15 seconds; the dashboard auto-refreshes at the same interval.
+
+```bash
+make obs-down   # stop observability stack only
+make obs-logs   # tail Prometheus + Grafana logs
+```
+
+See [ADR-023](docs/adr/ADR-023-prometheus-grafana-observability-stack.md) for design rationale.
 
 ### Dead-letter queues
 
@@ -335,6 +362,9 @@ Each significant technical decision is recorded in `docs/adr/`.
 | [ADR-008](docs/adr/ADR-008-audio-features-deprecation.md) | Audio features removed | Spotify deprecated the audio features endpoint; scorer simplified to genre novelty + popularity |
 | [ADR-009](docs/adr/ADR-009-dbmate-schema-migrations.md) | dbmate for migrations | Plain SQL migrations without an ORM dependency; runs as a one-shot Docker container on startup |
 | [ADR-010](docs/adr/ADR-010-shared-resilience-primitives.md) | Shared resilience primitives | `RateLimiter` and `CircuitBreaker` live in `signal_common` so fixes propagate to all API-calling services |
+| [ADR-017](docs/adr/ADR-017-go-novelty-detector.md) | Go for novelty-detector | Bounded service rewritten in Go for throughput and GIL-free concurrency; same topic boundary, transparent to other services |
+| [ADR-018](docs/adr/ADR-018-confluent-kafka-go.md) | confluent-kafka-go | CGo-based client chosen over sarama for API parity with the Python confluent-kafka client |
+| [ADR-023](docs/adr/ADR-023-prometheus-grafana-observability-stack.md) | Prometheus + Grafana observability | Optional `tools` profile; shared metrics module in `signal_common`; file-based Grafana provisioning |
 | [ADR-011](docs/adr/ADR-011-base-spotify-client-and-service-error.md) | Base Spotify client | Common Spotify auth + retry logic extracted to `signal_common` |
 
 ---

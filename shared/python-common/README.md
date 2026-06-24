@@ -38,6 +38,18 @@ Shared domain models and enums. `ArtistStatus` (`TRACKED`, `FOLLOWING`, `PUBLISH
 
 `SpotifyServiceError` base exception and shared Spotify auth/retry logic. See [ADR-011](../../docs/adr/ADR-011-base-spotify-client-and-service-error.md).
 
+### `metrics`
+
+Shared Prometheus counter definitions and helper functions used by all pipeline services (Python). Exposes three `CounterVec` objects:
+
+- `signal_events_consumed_total{service, topic}`
+- `signal_events_produced_total{service, topic}`
+- `signal_processing_errors_total{service, error_type}`
+
+Services call `start_metrics_server()` once at startup (idempotent) and `init_labels()` to pre-initialise all label combinations at zero. Per-event calls are `inc_consumed()`, `inc_produced()`, and `inc_error()`. The Go novelty-detector has an equivalent implementation using `prometheus/client_golang`.
+
+See [ADR-023](../../docs/adr/ADR-023-prometheus-grafana-observability-stack.md) for the observability stack design.
+
 ## Adding signal-common as a dependency
 
 In a service's `pyproject.toml`:
