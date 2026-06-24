@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from signal_common.models import ArtistStatus  # noqa: F401 — re-exported for API consumers
 
 T = TypeVar("T")
@@ -384,3 +384,41 @@ class SourceEffectivenessEntry(BaseModel):
 
 class SourceEffectivenessResponse(BaseModel):
     sources: list[SourceEffectivenessEntry]
+
+
+# --- Graph models ---
+
+class GraphNodeAttributes(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    node_type: Literal["artist", "genre"] = Field(alias="nodeType")
+    label: str
+    status: ArtistStatus | None = None
+    score: float | None = None
+    scrobble_count: int | None = None
+    genres: list[str] | None = None
+    spotify_id: str | None = None
+    artist_count: int | None = None
+
+
+class GraphNode(BaseModel):
+    key: str
+    attributes: GraphNodeAttributes
+
+
+class GraphEdgeAttributes(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    edge_type: Literal["tagged", "similar"] = Field(alias="edgeType")
+
+
+class GraphEdge(BaseModel):
+    key: str
+    source: str
+    target: str
+    attributes: GraphEdgeAttributes
+
+
+class GraphResponse(BaseModel):
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]

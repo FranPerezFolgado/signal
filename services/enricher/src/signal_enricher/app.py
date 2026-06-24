@@ -4,6 +4,13 @@ from datetime import UTC, datetime
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
+from signal_common.metrics import (
+    inc_consumed,
+    inc_error,
+    inc_produced,
+    init_labels,
+    start_metrics_server,
+)
 
 from signal_enricher.enricher import Enricher
 from signal_enricher.settings import Settings
@@ -32,6 +39,8 @@ def run_consumer(settings: Settings) -> None:
         _CLIENT_ID,
     )
     producer = KafkaJsonProducer(settings.kafka_bootstrap_servers, client_id=_CLIENT_ID)
+    start_metrics_server()
+    init_labels(_CLIENT_ID, [_INPUT_TOPIC], [_OUTPUT_TOPIC])
 
     stop = False
 
@@ -65,15 +74,19 @@ def run_consumer(settings: Settings) -> None:
             enriched["processed_at"] = processed_at
 
             producer.produce(_OUTPUT_TOPIC, enriched, key=signal_id)
+            inc_produced(_CLIENT_ID, _OUTPUT_TOPIC)
             unflushed = producer.flush(timeout=10.0)
             if unflushed > 0:
                 # Accept at-most-once for this message rather than risk
                 # re-processing the same message in a tight loop.
                 _log.error("kafka_flush_timeout", unflushed=unflushed, signal_id=signal_id[:8])
+                inc_error(_CLIENT_ID, "kafka_produce")
                 consumer.commit()
+                inc_consumed(_CLIENT_ID, _INPUT_TOPIC)
                 continue
 
             consumer.commit()
+            inc_consumed(_CLIENT_ID, _INPUT_TOPIC)
             _log.info(
                 "enriched",
                 signal_id=signal_id[:8],

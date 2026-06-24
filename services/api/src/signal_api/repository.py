@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
@@ -1259,3 +1260,114 @@ class ReportsRepository:
             }
             for r in rows
         ]
+
+
+class GraphRepository:
+    def __init__(self, conn: psycopg.Connection) -> None:
+        self._conn = conn
+
+    def get_graph_data(
+        self,
+        status: str | None,
+        genre: str | None,
+        min_score: float | None,
+        min_genre_artists: int,
+        limit: int,
+    ) -> dict:
+        conditions: list[str] = []
+        params: list = []
+
+        if status is not None:
+            conditions.append("a.status = %s")
+            params.append(status)
+        if genre is not None:
+            conditions.append("%s = ANY(a.genres)")
+            params.append(genre)
+        if min_score is not None:
+            conditions.append("r.score >= %s")
+            params.append(min_score)
+
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                f"""
+                SELECT
+                    a.id::text AS id,
+                    a.name,
+                    a.status,
+                    a.scrobble_count,
+                    a.genres,
+                    a.origin_artist_id::text AS origin_artist_id,
+                    a.external_ids->>'spotify' AS spotify_uri,
+                    r.score
+                FROM artists a
+                LEFT JOIN artist_recommendations r ON r.artist_id = a.id
+                {where}
+                ORDER BY a.scrobble_count DESC
+                LIMIT %s
+                """,
+                [*params, limit],
+            )
+            rows = cur.fetchall()
+
+        artist_ids: set[str] = {row["id"] for row in rows}
+
+        genre_artist_count: dict[str, int] = defaultdict(int)
+        for row in rows:
+            for g in (row["genres"] or []):
+                genre_artist_count[g] += 1
+
+        nodes: list[dict] = []
+        edges: list[dict] = []
+
+        for row in rows:
+            artist_key = f"artist:{row['id']}"
+            spotify_uri = row.get("spotify_uri") or ""
+            spotify_id: str | None = None
+            if spotify_uri:
+                spotify_id = spotify_uri.replace("spotify:artist:", "") or None
+
+            nodes.append({
+                "key": artist_key,
+                "attributes": {
+                    "nodeType": "artist",
+                    "label": row["name"],
+                    "status": row["status"],
+                    "score": row["score"],
+                    "scrobble_count": row["scrobble_count"],
+                    "genres": row["genres"] or [],
+                    "spotify_id": spotify_id,
+                },
+            })
+
+            for g in (row["genres"] or []):
+                if genre_artist_count[g] >= min_genre_artists:
+                    edges.append({
+                        "key": f"e:{artist_key}:genre:{g}",
+                        "source": artist_key,
+                        "target": f"genre:{g}",
+                        "attributes": {"edgeType": "tagged"},
+                    })
+
+            origin = row.get("origin_artist_id")
+            if origin and origin in artist_ids and origin != row["id"]:
+                edges.append({
+                    "key": f"e:{artist_key}:artist:{origin}",
+                    "source": artist_key,
+                    "target": f"artist:{origin}",
+                    "attributes": {"edgeType": "similar"},
+                })
+
+        for g, count in genre_artist_count.items():
+            if count >= min_genre_artists:
+                nodes.append({
+                    "key": f"genre:{g}",
+                    "attributes": {
+                        "nodeType": "genre",
+                        "label": g,
+                        "artist_count": count,
+                    },
+                })
+
+        return {"nodes": nodes, "edges": edges}

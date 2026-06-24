@@ -900,6 +900,7 @@ version = "0.1.0"
 source = { editable = "shared/python-common" }
 dependencies = [
     { name = "confluent-kafka" },
+    { name = "prometheus-client" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
     { name = "structlog" },
@@ -908,6 +909,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "confluent-kafka", specifier = ">=2.4" },
+    { name = "prometheus-client", specifier = ">=0.20" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1" },
     { name = "pydantic-settings", specifier = ">=2.0" },
     { name = "structlog", specifier = ">=24.0" },

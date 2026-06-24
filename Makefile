@@ -2,7 +2,7 @@
 
 COMPOSE = docker compose -f infra/docker-compose.yml
 
-.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs onboarding test-e2e dashboard dashboard-up dashboard-down dashboard-logs
+.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs onboarding test-e2e dashboard dashboard-up dashboard-down dashboard-logs obs-up obs-down obs-logs
 
 ## Arranca Kafka + Zookeeper + PostgreSQL (y crea los topics)
 up:
@@ -233,6 +233,26 @@ dashboard-down:
 ## Muestra los logs del contenedor del dashboard (Ctrl+C para salir)
 dashboard-logs:
 	@docker logs -f signal-dashboard
+
+# ─── observability (Prometheus + Grafana + kafka-exporter) ───────────────────
+
+.PHONY: obs-up obs-down obs-logs
+
+## Arranca Prometheus + Grafana + kafka-exporter (http://localhost:3000 · :9090)
+obs-up:
+	@$(COMPOSE) --profile services --profile tools up -d --build
+	@echo "✓ Pipeline + observabilidad arrancados"
+	@echo "  Grafana   → http://localhost:3000  (Signal Pipeline dashboard)"
+	@echo "  Prometheus → http://localhost:9090/targets"
+
+## Para Prometheus, Grafana y kafka-exporter (mantiene el resto)
+obs-down:
+	@$(COMPOSE) stop prometheus grafana kafka-exporter
+	@$(COMPOSE) rm -f prometheus grafana kafka-exporter
+
+## Logs de la pila de observabilidad (Ctrl+C para salir)
+obs-logs:
+	@$(COMPOSE) logs -f prometheus grafana kafka-exporter
 
 # ─── kafka-ui ─────────────────────────────────────────────────────────────────
 

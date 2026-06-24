@@ -1,5 +1,5 @@
 # Stage 1 — builder: compile Go binary with CGo for confluent-kafka-go
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 RUN apk add --no-cache gcc musl-dev librdkafka-dev pkgconfig
 

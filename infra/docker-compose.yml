@@ -117,6 +117,7 @@ services:
       # Override host values with Docker-internal addresses
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
+      METRICS_PORT: "9100"
 
   # ─── normalizer ──────────────────────────────────────────────────────────────
   normalizer:
@@ -136,6 +137,7 @@ services:
     env_file: ../.env
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      METRICS_PORT: "9100"
 
   # ─── enricher ────────────────────────────────────────────────────────────────
   enricher:
@@ -161,6 +163,7 @@ services:
       BACKOFF_BASE_S: 1
       BACKOFF_MAX_S: 30
       LASTFM_FALLBACK_ENABLED: "true"
+      METRICS_PORT: "9100"
 
   # ─── kafka-ui ────────────────────────────────────────────────────────────────
   kafka-ui:
@@ -195,6 +198,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
+      METRICS_PORT: "9100"
 
   # ─── novelty-detector ────────────────────────────────────────────────────────
   novelty-detector:
@@ -216,6 +220,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
       AUTO_FOLLOW_PLAYS: "3"
+      METRICS_PORT: "9100"
 
   # ─── scorer ──────────────────────────────────────────────────────────────────
   scorer:
@@ -240,6 +245,7 @@ services:
       W2: "0.4"
       HP_BONUS: "1.2"
       SCORER_STATS_INTERVAL: "100"
+      METRICS_PORT: "9100"
 
   # ─── artist-tracker ──────────────────────────────────────────────────────────
   artist-tracker:
@@ -265,6 +271,7 @@ services:
       LASTFM_SIMILAR_INTERVAL_HOURS: ${LASTFM_SIMILAR_INTERVAL_HOURS:-24}
       LASTFM_SIMILAR_LIMIT: ${LASTFM_SIMILAR_LIMIT:-10}
       LASTFM_SIMILAR_RATE_LIMIT_PER_30S: ${LASTFM_SIMILAR_RATE_LIMIT_PER_30S:-150}
+      METRICS_PORT: "9100"
 
   # ─── api ─────────────────────────────────────────────────────────────────────
   api:
@@ -298,6 +305,47 @@ services:
     environment:
       VITE_API_BASE_URL: http://localhost:8000
 
+  # ─── kafka-exporter ──────────────────────────────────────────────────────────
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: signal-kafka-exporter
+    profiles: [tools]
+    command: ["--kafka.server=kafka:29092"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # ─── prometheus ───────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: signal-prometheus
+    profiles: [tools]
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  # ─── grafana ──────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: signal-grafana
+    profiles: [tools]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+
 volumes:
   kafka-data:
   postgres-data:
+  prometheus-data:
+  grafana-data:

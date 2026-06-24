@@ -5,6 +5,7 @@ from signal_common.circuit_breaker import CircuitBreaker
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
+from signal_common.metrics import inc_consumed, inc_produced, init_labels, start_metrics_server
 from signal_common.rate_limiter import RateLimiter
 from signal_common.spotify import SpotifyServiceError
 
@@ -71,6 +72,8 @@ def run_consumer(settings: Settings) -> None:
         _CLIENT_ID,
     )
     producer = KafkaJsonProducer(settings.kafka_bootstrap_servers, client_id=_CLIENT_ID)
+    start_metrics_server()
+    init_labels(_CLIENT_ID, list(_INPUT_TOPICS), [_OUTPUT_TOPIC])
 
     stop = False
 
@@ -115,12 +118,17 @@ def run_consumer(settings: Settings) -> None:
             normalized = _build_output(raw, signal_id, artist_id, track_id, processed_at)
 
             producer.produce(_OUTPUT_TOPIC, normalized, key=signal_id)
+            inc_produced(_CLIENT_ID, _OUTPUT_TOPIC)
             unflushed = producer.flush(timeout=10.0)
             if unflushed > 0:
                 _log.error("kafka_flush_timeout", unflushed=unflushed, signal_id=signal_id[:8])
                 continue
 
             consumer.commit()
+            consumed_topic = (
+                "raw.plays" if raw.get("source", "lastfm") == "lastfm" else "raw.tracks"
+            )
+            inc_consumed(_CLIENT_ID, consumed_topic)
             _log.info(
                 "processed",
                 signal_id=signal_id[:8],

@@ -8,6 +8,7 @@ from psycopg import OperationalError as _PsycopgOperationalError
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
+from signal_common.metrics import inc_consumed, inc_error, init_labels, start_metrics_server
 
 from signal_scorer.dlq_publisher import DlqPublisher
 from signal_scorer.scoring import compute_score, validate_message
@@ -126,6 +127,8 @@ def run_consumer(settings: Settings) -> None:
     signal.signal(signal.SIGINT, _handle_signal)
 
     consumer.subscribe([settings.kafka_input_topic])
+    start_metrics_server()
+    init_labels(_CLIENT_ID, [settings.kafka_input_topic], [])
     _log.info("scorer_started", topic=settings.kafka_input_topic)
 
     try:
@@ -149,6 +152,8 @@ def run_consumer(settings: Settings) -> None:
                     )
                     total_dlq += 1
                     consumer.commit()
+                    inc_error(_CLIENT_ID, "deserialization")
+                    inc_consumed(_CLIENT_ID, settings.kafka_input_topic)
                     _maybe_log_stats(
                         total_consumed, total_upserted, total_dlq, total_errors,
                         settings.scorer_stats_interval,
@@ -171,6 +176,7 @@ def run_consumer(settings: Settings) -> None:
                         )
                         total_dlq += 1
                         consumer.commit()
+                        inc_consumed(_CLIENT_ID, settings.kafka_input_topic)
                         _maybe_log_stats(
                             total_consumed, total_upserted, total_dlq, total_errors,
                             settings.scorer_stats_interval,
@@ -196,6 +202,7 @@ def run_consumer(settings: Settings) -> None:
 
                     total_upserted += 1
                     consumer.commit()
+                    inc_consumed(_CLIENT_ID, settings.kafka_input_topic)
 
                 except _PsycopgOperationalError as exc:
                     _log.error("db_connection_error", error=str(exc))
@@ -211,6 +218,8 @@ def run_consumer(settings: Settings) -> None:
                     total_errors += 1
                     total_dlq += 1
                     consumer.commit()
+                    inc_error(_CLIENT_ID, "db_write")
+                    inc_consumed(_CLIENT_ID, settings.kafka_input_topic)
 
                 _maybe_log_stats(
                     total_consumed, total_upserted, total_dlq, total_errors,

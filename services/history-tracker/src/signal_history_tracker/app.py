@@ -4,6 +4,13 @@ import psycopg
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
+from signal_common.metrics import (
+    inc_consumed,
+    inc_error,
+    inc_produced,
+    init_labels,
+    start_metrics_server,
+)
 
 from signal_history_tracker.artist_repository import ArtistRepository
 from signal_history_tracker.dlq_publisher import DlqPublisher
@@ -39,6 +46,8 @@ def run_consumer(settings: Settings) -> None:
     history_repo = HistoryRepository()
     artist_repo = ArtistRepository()
     dlq = DlqPublisher(dlq_producer, _DLQ_TOPIC)
+    start_metrics_server()
+    init_labels(_CLIENT_ID, [_INPUT_TOPIC], [_OUTPUT_TOPIC])
 
     processed = 0
     failed_dlq = 0
@@ -88,6 +97,8 @@ def run_consumer(settings: Settings) -> None:
                     conn.rollback()
                     dlq.publish("DB_FAILURE", "database error", raw)
                     consumer.commit()
+                    inc_error(_CLIENT_ID, "db_write")
+                    inc_consumed(_CLIENT_ID, _INPUT_TOPIC)
                     failed_dlq += 1
                     continue
 
@@ -101,6 +112,8 @@ def run_consumer(settings: Settings) -> None:
                     conn.rollback()
                     dlq.publish("KAFKA_EMIT_FAILURE", "produce error", raw)
                     consumer.commit()
+                    inc_error(_CLIENT_ID, "kafka_produce")
+                    inc_consumed(_CLIENT_ID, _INPUT_TOPIC)
                     failed_dlq += 1
                     continue
 
@@ -108,11 +121,15 @@ def run_consumer(settings: Settings) -> None:
                     conn.rollback()
                     dlq.publish("KAFKA_EMIT_FAILURE", "flush timeout", raw)
                     consumer.commit()
+                    inc_error(_CLIENT_ID, "kafka_produce")
+                    inc_consumed(_CLIENT_ID, _INPUT_TOPIC)
                     failed_dlq += 1
                     continue
 
                 conn.commit()
                 consumer.commit()
+                inc_consumed(_CLIENT_ID, _INPUT_TOPIC)
+                inc_produced(_CLIENT_ID, _OUTPUT_TOPIC)
 
                 if inserted:
                     processed += 1

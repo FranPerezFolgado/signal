@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"signal/novelty-detector/internal/config"
 	"signal/novelty-detector/internal/consumer"
@@ -60,6 +62,18 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	go func() {
+		port := os.Getenv("METRICS_PORT")
+		if port == "" {
+			port = "9100"
+		}
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		if err := http.ListenAndServe(":"+port, mux); err != nil {
+			logger.Error("metrics_server_failed", "error", err)
+		}
+	}()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)

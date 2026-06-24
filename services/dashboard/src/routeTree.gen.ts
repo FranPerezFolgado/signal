@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StatsRouteImport } from './routes/stats'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as GraphRouteImport } from './routes/graph'
 import { Route as FollowingRouteImport } from './routes/following'
 import { Route as DiscoveryRouteImport } from './routes/discovery'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,6 +24,11 @@ const StatsRoute = StatsRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GraphRoute = GraphRouteImport.update({
+  id: '/graph',
+  path: '/graph',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FollowingRoute = FollowingRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/discovery': typeof DiscoveryRoute
   '/following': typeof FollowingRoute
+  '/graph': typeof GraphRoute
   '/reports': typeof ReportsRoute
   '/stats': typeof StatsRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/discovery': typeof DiscoveryRoute
   '/following': typeof FollowingRoute
+  '/graph': typeof GraphRoute
   '/reports': typeof ReportsRoute
   '/stats': typeof StatsRoute
 }
@@ -60,21 +68,36 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/discovery': typeof DiscoveryRoute
   '/following': typeof FollowingRoute
+  '/graph': typeof GraphRoute
   '/reports': typeof ReportsRoute
   '/stats': typeof StatsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/discovery' | '/following' | '/reports' | '/stats'
+  fullPaths:
+    | '/'
+    | '/discovery'
+    | '/following'
+    | '/graph'
+    | '/reports'
+    | '/stats'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/discovery' | '/following' | '/reports' | '/stats'
-  id: '__root__' | '/' | '/discovery' | '/following' | '/reports' | '/stats'
+  to: '/' | '/discovery' | '/following' | '/graph' | '/reports' | '/stats'
+  id:
+    | '__root__'
+    | '/'
+    | '/discovery'
+    | '/following'
+    | '/graph'
+    | '/reports'
+    | '/stats'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DiscoveryRoute: typeof DiscoveryRoute
   FollowingRoute: typeof FollowingRoute
+  GraphRoute: typeof GraphRoute
   ReportsRoute: typeof ReportsRoute
   StatsRoute: typeof StatsRoute
 }
@@ -93,6 +116,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/graph': {
+      id: '/graph'
+      path: '/graph'
+      fullPath: '/graph'
+      preLoaderRoute: typeof GraphRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/following': {
@@ -123,6 +153,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DiscoveryRoute: DiscoveryRoute,
   FollowingRoute: FollowingRoute,
+  GraphRoute: GraphRoute,
   ReportsRoute: ReportsRoute,
   StatsRoute: StatsRoute,
 }

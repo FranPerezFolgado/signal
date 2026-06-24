@@ -330,3 +330,44 @@ export interface SourceEffectivenessEntry {
   published: number;
   publish_rate: number;
 }
+
+// --- Graph types ---
+
+export type NodeType = "artist" | "genre";
+export type EdgeType = "tagged" | "similar";
+
+export interface GraphNodeAttributes {
+  nodeType: NodeType;
+  label: string;
+  status?: string;
+  score?: number;
+  scrobble_count?: number;
+  genres?: string[];
+  spotify_id?: string;
+  artist_count?: number;
+}
+
+export interface GraphNode {
+  key: string;
+  attributes: GraphNodeAttributes;
+}
+
+export interface GraphEdge {
+  key: string;
+  source: string;
+  target: string;
+  attributes: { edgeType: EdgeType };
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface GraphFilters {
+  status?: string;
+  genre?: string;
+  min_score?: number;
+  min_genre_artists?: number;
+  limit?: number;
+}
