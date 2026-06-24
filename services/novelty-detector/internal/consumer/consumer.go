@@ -15,6 +15,7 @@ import (
 	"signal/novelty-detector/internal/config"
 	"signal/novelty-detector/internal/dlq"
 	"signal/novelty-detector/internal/kafka"
+	"signal/novelty-detector/internal/metrics"
 	"signal/novelty-detector/internal/novelty"
 	"signal/novelty-detector/internal/repository"
 )
@@ -72,6 +73,13 @@ func Run(
 		return err
 	}
 
+	// Pre-initialise counters so Prometheus emits them before the first event.
+	metrics.EventsConsumed.WithLabelValues(ClientID, inputTopic)
+	metrics.EventsProduced.WithLabelValues(ClientID, outputTopic)
+	metrics.ProcessingErrors.WithLabelValues(ClientID, "deserialization")
+	metrics.ProcessingErrors.WithLabelValues(ClientID, "db_write")
+	metrics.ProcessingErrors.WithLabelValues(ClientID, "kafka_produce")
+
 	var (
 		processed      int
 		skippedPending int
@@ -126,9 +134,12 @@ func Run(
 			continue
 		}
 
+		metrics.EventsConsumed.WithLabelValues(ClientID, inputTopic).Inc()
+
 		// Decode directly into typed struct — no intermediate map round-trip.
 		var track EnrichedTrack
 		if err := json.Unmarshal(msg.Value, &track); err != nil {
+			metrics.ProcessingErrors.WithLabelValues(ClientID, "deserialization").Inc()
 			dlqWriter.Publish("malformed_message", "failed to parse JSON: "+err.Error(),
 				truncate(string(msg.Value), 4096))
 			failedDLQ++
@@ -137,6 +148,7 @@ func Run(
 		}
 
 		if !isValidTrack(&track) {
+			metrics.ProcessingErrors.WithLabelValues(ClientID, "deserialization").Inc()
 			dlqWriter.Publish("malformed_message", "invalid or missing required fields", track)
 			failedDLQ++
 			consumer.Commit() //nolint:errcheck
@@ -157,6 +169,7 @@ func Run(
 			if isOperationalError(err) {
 				return err
 			}
+			metrics.ProcessingErrors.WithLabelValues(ClientID, "db_write").Inc()
 			dlqWriter.Publish("processing_error", "failed to fetch artist: "+err.Error(), track)
 			failedDLQ++
 			consumer.Commit() //nolint:errcheck
@@ -174,6 +187,7 @@ func Run(
 			if isOperationalError(err) {
 				return err
 			}
+			metrics.ProcessingErrors.WithLabelValues(ClientID, "db_write").Inc()
 			dlqWriter.Publish("processing_error", "novelty query failed: "+err.Error(), track)
 			failedDLQ++
 			consumer.Commit() //nolint:errcheck
@@ -185,6 +199,7 @@ func Run(
 			if isOperationalError(err) {
 				return err
 			}
+			metrics.ProcessingErrors.WithLabelValues(ClientID, "db_write").Inc()
 			dlqWriter.Publish("processing_error", "genre query failed: "+err.Error(), track)
 			failedDLQ++
 			consumer.Commit() //nolint:errcheck
@@ -196,6 +211,7 @@ func Run(
 			if isOperationalError(err) {
 				return err
 			}
+			metrics.ProcessingErrors.WithLabelValues(ClientID, "db_write").Inc()
 			dlqWriter.Publish("processing_error", "track-new query failed: "+err.Error(), track)
 			failedDLQ++
 			consumer.Commit() //nolint:errcheck
@@ -235,11 +251,14 @@ func Run(
 			if isOperationalError(err) {
 				return err
 			}
+			metrics.ProcessingErrors.WithLabelValues(ClientID, "kafka_produce").Inc()
 			dlqWriter.Publish("processing_error", "failed to produce event: "+err.Error(), track)
 			failedDLQ++
 			consumer.Commit() //nolint:errcheck
 			continue
 		}
+
+		metrics.EventsProduced.WithLabelValues(ClientID, outputTopic).Inc()
 
 		// Produce() already confirmed delivery via its internal delivery channel.
 		// Commit only after that confirmation — the deferred Flush handles any

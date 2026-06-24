@@ -7,6 +7,7 @@ from signal_common.circuit_breaker import CircuitBreaker, CircuitOpenError
 from signal_common.db import get_connection
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
+from signal_common.metrics import inc_error, inc_produced, init_labels, start_metrics_server
 from signal_common.rate_limiter import RateLimiter
 
 from .client import LastfmClient
@@ -34,6 +35,7 @@ def _ingest_page(
         if play is None:
             continue
         producer.produce(_TOPIC, play, key=_make_key(play["artist"], play["title"]))
+        inc_produced(_SERVICE, _TOPIC)
         emitted += 1
     producer.flush()
     return emitted, result.total_pages
@@ -53,6 +55,8 @@ def run_polling(settings: Settings) -> None:
         settings.lastfm_api_key, settings.lastfm_username, rate_limiter=rate_limiter
     )
     producer = KafkaJsonProducer(settings.kafka_bootstrap_servers, client_id=_SERVICE)
+    start_metrics_server()
+    init_labels(_SERVICE, [], [_TOPIC])
 
     stop = False
 
@@ -82,6 +86,7 @@ def run_polling(settings: Settings) -> None:
                 circuit_breaker.record_success()
             except Exception:
                 circuit_breaker.record_failure()
+                inc_error(_SERVICE, "external_api")
                 _log.warning("lastfm_poll_failed_circuit_recorded")
         else:
             _log.warning("circuit_open_skipping_poll")
@@ -100,6 +105,8 @@ def run_backfill(settings: Settings) -> None:
         settings.lastfm_api_key, settings.lastfm_username, rate_limiter=rate_limiter
     )
     producer = KafkaJsonProducer(settings.kafka_bootstrap_servers, client_id=_SERVICE)
+    start_metrics_server()
+    init_labels(_SERVICE, [], [_TOPIC])
 
     _log.info("backfill_started")
     page = 1
@@ -113,6 +120,7 @@ def run_backfill(settings: Settings) -> None:
             circuit_breaker.record_success()
         except Exception:
             circuit_breaker.record_failure()
+            inc_error(_SERVICE, "external_api")
             raise
 
         total_emitted += emitted

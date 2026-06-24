@@ -43,6 +43,16 @@ Response shape:
 }
 ```
 
+## Observability
+
+The `/metrics` endpoint is automatically scraped by Prometheus when the stack is started with the `tools` profile:
+
+```bash
+docker compose --profile services --profile tools up
+```
+
+Metrics are then visible in Grafana at `http://localhost:3000` under the **Signal Pipeline** dashboard.
+
 ## Configuration
 
 | Variable | Default | Description |
