@@ -4,7 +4,13 @@ import psycopg
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
-from signal_common.metrics import inc_consumed, inc_error, inc_produced, init_labels, start_metrics_server
+from signal_common.metrics import (
+    inc_consumed,
+    inc_error,
+    inc_produced,
+    init_labels,
+    start_metrics_server,
+)
 
 from signal_history_tracker.artist_repository import ArtistRepository
 from signal_history_tracker.dlq_publisher import DlqPublisher

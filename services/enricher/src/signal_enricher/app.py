@@ -4,7 +4,13 @@ from datetime import UTC, datetime
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
-from signal_common.metrics import inc_consumed, inc_error, inc_produced, init_labels, start_metrics_server
+from signal_common.metrics import (
+    inc_consumed,
+    inc_error,
+    inc_produced,
+    init_labels,
+    start_metrics_server,
+)
 
 from signal_enricher.enricher import Enricher
 from signal_enricher.settings import Settings

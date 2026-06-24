@@ -5,7 +5,7 @@ from signal_common.circuit_breaker import CircuitBreaker
 from signal_common.kafka_consumer import KafkaJsonConsumer
 from signal_common.kafka_producer import KafkaJsonProducer
 from signal_common.logger import get_logger
-from signal_common.metrics import inc_consumed, inc_error, inc_produced, init_labels, start_metrics_server
+from signal_common.metrics import inc_consumed, inc_produced, init_labels, start_metrics_server
 from signal_common.rate_limiter import RateLimiter
 from signal_common.spotify import SpotifyServiceError
 
@@ -125,7 +125,9 @@ def run_consumer(settings: Settings) -> None:
                 continue
 
             consumer.commit()
-            consumed_topic = "raw.plays" if raw.get("source", "lastfm") == "lastfm" else "raw.tracks"
+            consumed_topic = (
+                "raw.plays" if raw.get("source", "lastfm") == "lastfm" else "raw.tracks"
+            )
             inc_consumed(_CLIENT_ID, consumed_topic)
             _log.info(
                 "processed",
