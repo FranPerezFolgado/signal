@@ -98,7 +98,7 @@ def run_polling(settings: Settings) -> None:
     _log.info("polling_stopped")
 
 
-def run_backfill(settings: Settings) -> None:
+def run_backfill(settings: Settings, days: int | None = None) -> None:
     rate_limiter = RateLimiter(settings.lastfm_rate_limit_per_30s)
     circuit_breaker = _make_circuit_breaker(settings)
     client = LastfmClient(
@@ -108,7 +108,9 @@ def run_backfill(settings: Settings) -> None:
     start_metrics_server()
     init_labels(_SERVICE, [], [_TOPIC])
 
-    _log.info("backfill_started")
+    from_uts = int(time.time()) - days * 86400 if days is not None else None
+
+    _log.info("backfill_started", days=days)
     page = 1
     total_emitted = 0
 
@@ -116,7 +118,7 @@ def run_backfill(settings: Settings) -> None:
         if not circuit_breaker.should_allow():
             raise CircuitOpenError("circuit open — retry backfill when Last.fm recovers")
         try:
-            emitted, total_pages = _ingest_page(client, producer, from_uts=None, page=page)
+            emitted, total_pages = _ingest_page(client, producer, from_uts=from_uts, page=page)
             circuit_breaker.record_success()
         except Exception:
             circuit_breaker.record_failure()
