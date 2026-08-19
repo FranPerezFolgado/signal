@@ -13,7 +13,7 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       # 9092 → acceso externo (host); 29092 → comunicación interna entre contenedores
       KAFKA_LISTENERS: EXTERNAL://0.0.0.0:9092,INTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:9092,INTERNAL://kafka:29092
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://${HOST_IP:-localhost}:9092,INTERNAL://kafka:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
@@ -104,7 +104,7 @@ services:
       dockerfile: services/lastfm-ingester/Dockerfile
     container_name: signal-lastfm-ingester
     profiles: [services]
-    restart: on-failure
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -126,7 +126,7 @@ services:
       dockerfile: services/normalizer/Dockerfile
     container_name: signal-normalizer
     profiles: [services]
-    restart: on-failure
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -146,7 +146,7 @@ services:
       dockerfile: services/enricher/Dockerfile
     container_name: signal-enricher
     profiles: [services]
-    restart: on-failure
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -170,8 +170,9 @@ services:
     image: provectuslabs/kafka-ui:v0.7.2
     container_name: signal-kafka-ui
     profiles: [tools]
+    restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"
+      - "8080:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: signal
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
@@ -186,7 +187,7 @@ services:
       dockerfile: services/history-tracker/Dockerfile
     container_name: signal-history-tracker
     profiles: [services]
-    restart: on-failure
+    restart: unless-stopped
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -207,7 +208,7 @@ services:
       dockerfile: services/novelty-detector/Dockerfile
     container_name: signal-novelty-detector
     profiles: [services]
-    restart: on-failure
+    restart: unless-stopped
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -229,7 +230,7 @@ services:
       dockerfile: services/scorer/Dockerfile
     container_name: signal-scorer
     profiles: [services]
-    restart: on-failure
+    restart: unless-stopped
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -254,7 +255,7 @@ services:
       dockerfile: services/artist-tracker/Dockerfile
     container_name: signal-artist-tracker
     profiles: [services]
-    restart: on-failure
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -280,14 +281,14 @@ services:
       dockerfile: services/api/Dockerfile
     container_name: signal-api
     profiles: [services]
-    restart: on-failure
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
     ports:
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
     env_file: ../.env
     environment:
       DATABASE_URL: postgresql://signal:${POSTGRES_PASSWORD:-signal}@postgres:5432/signal
@@ -300,8 +301,9 @@ services:
       dockerfile: services/dashboard/Dockerfile
     container_name: signal-dashboard
     profiles: [tools]
+    restart: unless-stopped
     ports:
-      - "127.0.0.1:5173:5173"
+      - "5173:5173"
     environment:
       VITE_API_BASE_URL: http://localhost:8000
 
@@ -310,6 +312,7 @@ services:
     image: danielqsj/kafka-exporter:v1.7.0
     container_name: signal-kafka-exporter
     profiles: [tools]
+    restart: unless-stopped
     command: ["--kafka.server=kafka:29092"]
     depends_on:
       kafka:
@@ -320,6 +323,7 @@ services:
     image: prom/prometheus:v2.51.0
     container_name: signal-prometheus
     profiles: [tools]
+    restart: unless-stopped
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=15d"
@@ -327,13 +331,14 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - "127.0.0.1:9090:9090"
+      - "9090:9090"
 
   # ─── grafana ──────────────────────────────────────────────────────────────────
   grafana:
     image: grafana/grafana:10.4.0
     container_name: signal-grafana
     profiles: [tools]
+    restart: unless-stopped
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
@@ -342,7 +347,7 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
 
 volumes:
   kafka-data:

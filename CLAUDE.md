@@ -61,5 +61,5 @@ Active collection: `signal`
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/019-prometheus-grafana/plan.md`
+`specs/020-zimaboard-deploy/plan.md`
 <!-- SPECKIT END -->

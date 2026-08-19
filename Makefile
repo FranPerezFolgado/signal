@@ -2,7 +2,7 @@
 
 COMPOSE = docker compose -f infra/docker-compose.yml
 
-.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs onboarding test-e2e dashboard dashboard-up dashboard-down dashboard-logs obs-up obs-down obs-logs
+.PHONY: up down restart logs ps kafka-topics kafka-produce kafka-consume psql infra-clean ingester-backfill ingester-poll ingester-up ingester-logs onboarding test-e2e dashboard dashboard-up dashboard-down dashboard-logs obs-up obs-down obs-logs zima-up zima-down
 
 ## Arranca Kafka + Zookeeper + PostgreSQL (y crea los topics)
 up:
@@ -46,6 +46,20 @@ infra-clean:
 	@$(COMPOSE) down -v
 	@echo "✓ Contenedores y volúmenes eliminados"
 
+# ─── ZimaBoard — stack completo siempre encendido ────────────────────────────
+
+## Arranca pipeline + observabilidad (para usar en la ZimaBoard, siempre encendido)
+zima-up:
+	@$(COMPOSE) --profile services --profile tools up -d --build
+	@echo "✓ Stack completo arrancado"
+	@echo "  API       → http://$${HOST_IP:-localhost}:8000/docs"
+	@echo "  Dashboard → http://$${HOST_IP:-localhost}:5173"
+	@echo "  Grafana   → http://$${HOST_IP:-localhost}:3000"
+
+## Para todo el stack sin borrar volúmenes
+zima-down:
+	@$(COMPOSE) --profile services --profile tools down
+
 # ─── QMD — servidor MCP local para búsqueda semántica de docs ────────────────
 
 .PHONY: qmd-setup qmd-start qmd-stop qmd-reindex qmd-status
@@ -86,9 +100,9 @@ onboarding:
 # ingester-backfill / ingester-poll: run locally via uv (fast iteration, no Docker)
 # ingester-up / ingester-logs: run via Docker Compose (full-stack integration)
 
-## Carga el historial completo de Last.fm y termina (one-shot, local)
+## Carga el historial de Last.fm y termina (one-shot, local). Usa DAYS=N para limitar a los últimos N días.
 ingester-backfill:
-	@uv run python -m signal_lastfm_ingester --backfill
+	@uv run python -m signal_lastfm_ingester --backfill $(if $(DAYS),--days $(DAYS),)
 
 ## Arranca el polling en primer plano (local, requiere .env exportado)
 ingester-poll:

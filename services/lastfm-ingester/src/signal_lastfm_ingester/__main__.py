@@ -9,13 +9,19 @@ from signal_lastfm_ingester.settings import Settings
 def main() -> None:
     parser = argparse.ArgumentParser(description="Last.fm ingester for Signal")
     parser.add_argument("--backfill", action="store_true", help="Load full history and exit")
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="With --backfill, only load plays from the last N days (default: full history)",
+    )
     args = parser.parse_args()
 
     settings = Settings()
     configure_logging(settings.log_level)
 
     if args.backfill:
-        run_backfill(settings)
+        run_backfill(settings, days=args.days)
     else:
         run_polling(settings)
 

@@ -27,7 +27,7 @@ Polls the Last.fm API for recent scrobbles and publishes them to the `raw.plays`
 | Mode | Command | Description |
 |------|---------|-------------|
 | **Polling** (default) | `make ingester-poll` | Runs continuously; polls every `LASTFM_POLL_INTERVAL_SECONDS`. Reads the last-seen timestamp from the PostgreSQL `checkpoints` table so no scrobble is re-emitted. |
-| **Backfill** | `make ingester-backfill` | One-shot; pages through the entire Last.fm history from oldest to newest, then exits. |
+| **Backfill** | `make ingester-backfill` | One-shot; pages through the entire Last.fm history from oldest to newest, then exits. Use `make ingester-backfill DAYS=N` (or `--days N` directly) to only load plays from the last N days. |
 
 ## Configuration
 
@@ -55,6 +55,9 @@ make ingester-poll
 
 # Backfill (full history, one-shot)
 make ingester-backfill
+
+# Backfill (last 30 days only)
+make ingester-backfill DAYS=30
 
 # As Docker container
 make ingester-up
